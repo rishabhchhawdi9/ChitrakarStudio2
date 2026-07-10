@@ -118,15 +118,6 @@ async function initFirestoreIfNeeded() {
       for (const w of defaultWorks) {
         await setDoc(doc(db, "works", w.id), w);
       }
-    } else {
-      // Add any missing default works (like newly added Instagram photos)
-      const existingIds = new Set(worksSnap.docs.map((d) => d.id));
-      for (const w of defaultWorks) {
-        if (!existingIds.has(w.id)) {
-          console.log(`Adding missing default work ${w.id} to Firestore...`);
-          await setDoc(doc(db, "works", w.id), w);
-        }
-      }
     }
 
     // 2. Abstracts
@@ -154,15 +145,6 @@ async function initFirestoreIfNeeded() {
       console.log("Initializing Firestore media with defaults...");
       for (const m of defaultMedia) {
         await setDoc(doc(db, "media", m.id), m);
-      }
-    } else {
-      // Add any missing default media items
-      const existingIds = new Set(mediaSnap.docs.map((d) => d.id));
-      for (const m of defaultMedia) {
-        if (!existingIds.has(m.id)) {
-          console.log(`Adding missing default media item ${m.id} to Firestore...`);
-          await setDoc(doc(db, "media", m.id), m);
-        }
       }
     }
   } catch (err) {

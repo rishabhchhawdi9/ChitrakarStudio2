@@ -1,6 +1,9 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, getDocFromServer } from "firebase/firestore";
+import { getFirestore, doc, getDocFromServer, setLogLevel } from "firebase/firestore";
 import firebaseConfig from "../../firebase-applet-config.json";
+
+// Silence benign Firestore internal logs (e.g. gRPC/Listen idle stream cancellation logs)
+setLogLevel("error");
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);

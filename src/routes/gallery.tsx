@@ -36,30 +36,10 @@ function GalleryPage() {
   const [filter, setFilter] = useState<Category | "All">("All");
   const [active, setActive] = useState<Work | null>(null);
   const [activePin, setActivePin] = useState<PinterestPin | null>(null);
-  const [sortBy, setSortBy] = useState<"default" | "newest" | "oldest" | "alphabetical">("default");
 
-  const parseIdToValue = (id: string) => {
-    if (id.startsWith("w-")) {
-      return parseInt(id.split("-")[1]) || 0;
-    }
-    const match = id.match(/^w(\d+)$/);
-    if (match) {
-      return parseInt(match[1]);
-    }
-    return 0;
-  };
-
-  const sortedAndFiltered = useMemo(() => {
-    const result = filter === "All" ? [...works] : works.filter((w) => w.category === filter);
-    if (sortBy === "newest") {
-      result.sort((a, b) => parseIdToValue(b.id) - parseIdToValue(a.id));
-    } else if (sortBy === "oldest") {
-      result.sort((a, b) => parseIdToValue(a.id) - parseIdToValue(b.id));
-    } else if (sortBy === "alphabetical") {
-      result.sort((a, b) => a.title.localeCompare(b.title));
-    }
-    return result;
-  }, [filter, works, sortBy]);
+  const filteredWorks = useMemo(() => {
+    return filter === "All" ? works : works.filter((w) => w.category === filter);
+  }, [filter, works]);
 
   // React Query for live Pinterest feed
   const {
@@ -139,30 +119,11 @@ function GalleryPage() {
                   );
                 })}
               </div>
-
-              {/* Sort Selector */}
-              <div className="flex items-center gap-2 self-end md:self-auto">
-                <span className="text-xs uppercase tracking-wider text-primary/60 font-semibold">
-                  Sort By:
-                </span>
-                <select
-                  value={sortBy}
-                  onChange={(e) =>
-                    setSortBy(e.target.value as "default" | "newest" | "oldest" | "alphabetical")
-                  }
-                  className="px-3 py-1.5 border border-primary/20 bg-background text-primary rounded-lg text-xs font-semibold focus:outline-none focus:border-primary cursor-pointer"
-                >
-                  <option value="default">Default</option>
-                  <option value="newest">Newest Artworks</option>
-                  <option value="oldest">Oldest Artworks</option>
-                  <option value="alphabetical">Title (A-Z)</option>
-                </select>
-              </div>
             </div>
 
             <div className="columns-1 sm:columns-2 lg:columns-3 gap-6 space-y-6">
               <AnimatePresence mode="popLayout">
-                {sortedAndFiltered.map((w, i) => (
+                {filteredWorks.map((w, i) => (
                   <motion.figure
                     key={w.id}
                     layout
@@ -307,12 +268,6 @@ function GalleryPage() {
                           </div>
                         </div>
                       </div>
-
-                      <figcaption className="mt-3 px-1">
-                        <p className="font-[family-name:var(--font-display)] text-primary text-base leading-tight group-hover:text-red-600 transition-colors">
-                          {pin.title}
-                        </p>
-                      </figcaption>
                     </motion.figure>
                   ))}
                 </AnimatePresence>
@@ -387,13 +342,7 @@ function GalleryPage() {
                 referrerPolicy="no-referrer"
               />
               <div className="text-primary-foreground">
-                <p className="text-xs uppercase tracking-[0.3em] opacity-70">
-                  Live Pin · {new Date(activePin.pubDate).toLocaleDateString()}
-                </p>
-                <h2 className="font-[family-name:var(--font-display)] text-3xl mt-2 leading-tight">
-                  {activePin.title}
-                </h2>
-                <div className="mt-8 flex flex-col gap-3">
+                <div className="flex flex-col gap-3">
                   <a
                     href={activePin.url}
                     target="_blank"

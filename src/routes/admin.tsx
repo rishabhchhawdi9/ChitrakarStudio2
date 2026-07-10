@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   useWorks,
@@ -73,8 +73,23 @@ function AdminPage() {
     "studio",
   );
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
-  const [showMediaSelector, setShowMediaSelector] = useState(false);
+  const [mediaSelectorTarget, setMediaSelectorTarget] = useState<{
+    type: "work" | "abstract";
+    index?: number;
+  } | null>(null);
   const [mediaSearch, setMediaSearch] = useState("");
+
+  // Search, Filtering & Sorting states for Admin view
+  const [worksSearch, setWorksSearch] = useState("");
+  const [worksSort, setWorksSort] = useState<"default" | "newest" | "oldest" | "alphabetical">(
+    "default",
+  );
+  const [worksFilterCategory, setWorksFilterCategory] = useState<Category | "All">("All");
+
+  const [abstractsSearch, setAbstractsSearch] = useState("");
+  const [abstractsSort, setAbstractsSort] = useState<
+    "default" | "newest" | "oldest" | "alphabetical"
+  >("default");
 
   // Modals / Editing state
   const [editingWork, setEditingWork] = useState<Work | null>(null);
@@ -168,6 +183,78 @@ function AdminPage() {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 4000);
   };
+
+  // Helper function to parse ID for sorting
+  const parseIdToValue = (id: string) => {
+    if (id.startsWith("w-")) {
+      return parseInt(id.split("-")[1]) || 0;
+    }
+    const match = id.match(/^w(\d+)$/);
+    if (match) {
+      return parseInt(match[1]);
+    }
+    return 0;
+  };
+
+  // Helper function to parse Abstract ID for sorting
+  const parseAbstractIdToValue = (id: string) => {
+    if (id.startsWith("abs-")) {
+      return parseInt(id.split("-")[1]) || 0;
+    }
+    const match = id.match(/^abs(\d+)$/);
+    if (match) {
+      return parseInt(match[1]);
+    }
+    return 0;
+  };
+
+  // Computed and sorted works for Admin list
+  const processedWorks = useMemo(() => {
+    let result = [...works];
+    if (worksFilterCategory !== "All") {
+      result = result.filter((w) => w.category === worksFilterCategory);
+    }
+    if (worksSearch.trim() !== "") {
+      const q = worksSearch.toLowerCase();
+      result = result.filter(
+        (w) =>
+          w.title.toLowerCase().includes(q) ||
+          w.caption.toLowerCase().includes(q) ||
+          w.category.toLowerCase().includes(q),
+      );
+    }
+    if (worksSort === "newest") {
+      result.sort((a, b) => parseIdToValue(b.id) - parseIdToValue(a.id));
+    } else if (worksSort === "oldest") {
+      result.sort((a, b) => parseIdToValue(a.id) - parseIdToValue(b.id));
+    } else if (worksSort === "alphabetical") {
+      result.sort((a, b) => a.title.localeCompare(b.title));
+    }
+    return result;
+  }, [works, worksFilterCategory, worksSearch, worksSort]);
+
+  // Computed and sorted abstracts for Admin list
+  const processedAbstracts = useMemo(() => {
+    let result = [...abstracts];
+    if (abstractsSearch.trim() !== "") {
+      const q = abstractsSearch.toLowerCase();
+      result = result.filter(
+        (p) =>
+          p.title.toLowerCase().includes(q) ||
+          p.series.toLowerCase().includes(q) ||
+          p.medium.toLowerCase().includes(q) ||
+          p.description.toLowerCase().includes(q),
+      );
+    }
+    if (abstractsSort === "newest") {
+      result.sort((a, b) => parseAbstractIdToValue(b.id) - parseAbstractIdToValue(a.id));
+    } else if (abstractsSort === "oldest") {
+      result.sort((a, b) => parseAbstractIdToValue(a.id) - parseAbstractIdToValue(b.id));
+    } else if (abstractsSort === "alphabetical") {
+      result.sort((a, b) => a.title.localeCompare(b.title));
+    }
+    return result;
+  }, [abstracts, abstractsSearch, abstractsSort]);
 
   // Check login on load
   useEffect(() => {
@@ -456,6 +543,7 @@ function AdminPage() {
       storeActions.updateAbstract(editingAbstract.id, abstractForm);
       showToast(`Successfully updated abstract series "${abstractForm.title}".`);
       setEditingAbstract(null);
+      setIsAddingAbstract(false);
     } else {
       storeActions.addAbstract(abstractForm);
       showToast(`Successfully created abstract series "${abstractForm.title}".`);
@@ -1152,120 +1240,13 @@ function AdminPage() {
                               </span>
                               <button
                                 type="button"
-                                onClick={() => setShowMediaSelector(true)}
+                                onClick={() => setMediaSelectorTarget({ type: "work" })}
                                 className="px-4 py-2 bg-primary/10 border border-primary/25 hover:bg-primary/20 text-primary font-semibold text-xs rounded-md cursor-pointer transition-all"
                               >
                                 <span>Select Photo ({mediaLibrary.length})</span>
                               </button>
                             </div>
                           </div>
-
-                          {/* MEDIA SELECTOR OVERLAY MODAL */}
-                          <AnimatePresence>
-                            {showMediaSelector && (
-                              <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[150] flex items-center justify-center p-4">
-                                <motion.div
-                                  initial={{ opacity: 0, scale: 0.95 }}
-                                  animate={{ opacity: 1, scale: 1 }}
-                                  exit={{ opacity: 0, scale: 0.95 }}
-                                  className="bg-card border-2 border-primary/25 rounded-2xl p-6 max-w-4xl w-full max-h-[85vh] flex flex-col shadow-2xl relative text-left"
-                                >
-                                  <button
-                                    type="button"
-                                    onClick={() => setShowMediaSelector(false)}
-                                    className="absolute top-4 right-4 h-8 w-8 rounded-full border border-primary/20 hover:border-primary text-primary/70 hover:text-primary flex items-center justify-center transition-colors cursor-pointer"
-                                  >
-                                    <X className="h-4 w-4" />
-                                  </button>
-
-                                  <h3 className="font-[family-name:var(--font-display)] text-2xl text-primary mb-2 flex items-center gap-2">
-                                    <Folder className="h-6 w-6 text-primary" />
-                                    <span>Select From Artwork Folder</span>
-                                  </h3>
-                                  <p className="text-xs text-primary/70 mb-6">
-                                    Click on any photo in your media library to instantly select it
-                                    for this artwork.
-                                  </p>
-
-                                  {/* SEARCH FILTER */}
-                                  <div className="mb-4">
-                                    <input
-                                      type="text"
-                                      placeholder="Search files by name..."
-                                      value={mediaSearch}
-                                      onChange={(e) => setMediaSearch(e.target.value)}
-                                      className="w-full px-4 py-2 border border-primary/20 bg-background rounded-lg text-xs focus:outline-none focus:border-primary"
-                                    />
-                                  </div>
-
-                                  {/* IMAGES GRID */}
-                                  <div className="flex-1 overflow-y-auto min-h-[300px] max-h-[50vh] pr-2">
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                                      {mediaLibrary
-                                        .filter((m) =>
-                                          m.filename
-                                            .toLowerCase()
-                                            .includes(mediaSearch.toLowerCase()),
-                                        )
-                                        .map((m) => (
-                                          <button
-                                            key={m.id}
-                                            type="button"
-                                            onClick={() => {
-                                              setWorkForm((prev) => ({ ...prev, url: m.url }));
-                                              setShowMediaSelector(false);
-                                              showToast(`Selected image: ${m.filename}`);
-                                            }}
-                                            className="group flex flex-col text-left border border-primary/10 hover:border-primary/50 bg-background rounded-xl p-2 transition-all cursor-pointer hover:-translate-y-0.5 hover:shadow-md"
-                                          >
-                                            <div className="aspect-square rounded-lg overflow-hidden border border-primary/10 bg-primary/2 w-full relative">
-                                              <img
-                                                src={m.url}
-                                                alt={m.filename}
-                                                className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                                referrerPolicy="no-referrer"
-                                              />
-                                            </div>
-                                            <span
-                                              className="text-[10px] font-mono font-bold mt-2 text-primary/80 block truncate max-w-full"
-                                              title={m.filename}
-                                            >
-                                              {m.filename}
-                                            </span>
-                                            <span className="text-[8px] text-primary/50 block font-semibold">
-                                              Added: {new Date(m.addedAt).toLocaleDateString()}
-                                            </span>
-                                          </button>
-                                        ))}
-
-                                      {mediaLibrary.length === 0 && (
-                                        <div className="col-span-full py-12 text-center text-sm text-primary/50">
-                                          No images found. Please upload images to the "Artwork
-                                          Folder" tab first!
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-
-                                  <div className="border-t border-primary/10 pt-4 mt-4 flex justify-between items-center text-xs">
-                                    <span className="text-primary/60">
-                                      Total items in library: <strong>{mediaLibrary.length}</strong>
-                                    </span>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setShowMediaSelector(false);
-                                        setActiveTab("media");
-                                      }}
-                                      className="px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary font-semibold text-xs rounded-lg transition-colors cursor-pointer"
-                                    >
-                                      Manage Artwork Folder
-                                    </button>
-                                  </div>
-                                </motion.div>
-                              </div>
-                            )}
-                          </AnimatePresence>
 
                           {/* Image preview rendering */}
                           {workForm.url && (
@@ -1308,13 +1289,56 @@ function AdminPage() {
 
                 {/* CURRENT GALLERY LIST TABLE */}
                 <div className="bg-card border border-primary/15 rounded-xl overflow-hidden shadow-xs">
-                  <div className="px-6 py-4 border-b border-primary/10 bg-primary/2 flex justify-between items-center text-xs uppercase tracking-wider font-bold text-primary/70">
-                    <span>Published Gallery Items ({works.length})</span>
-                    <span>Action Dashboard</span>
+                  <div className="px-6 py-4 border-b border-primary/10 bg-primary/2 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <span className="text-xs uppercase tracking-wider font-bold text-primary/70">
+                      Published Gallery Items ({processedWorks.length} of {works.length})
+                    </span>
+
+                    {/* SEARCH & SORT TOOLBAR */}
+                    <div className="flex flex-wrap items-center gap-3">
+                      {/* Search */}
+                      <input
+                        type="text"
+                        placeholder="Search artworks..."
+                        value={worksSearch}
+                        onChange={(e) => setWorksSearch(e.target.value)}
+                        className="px-3 py-1.5 text-xs bg-background border border-primary/20 rounded-lg text-primary focus:outline-none focus:border-primary max-w-xs"
+                      />
+
+                      {/* Filter category */}
+                      <select
+                        value={worksFilterCategory}
+                        onChange={(e) => setWorksFilterCategory(e.target.value as Category | "All")}
+                        className="px-3 py-1.5 text-xs bg-background border border-primary/20 rounded-lg text-primary font-semibold focus:outline-none focus:border-primary cursor-pointer"
+                      >
+                        <option value="All">All Categories</option>
+                        {CATEGORIES.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+
+                      {/* Sort dropdown */}
+                      <select
+                        value={worksSort}
+                        onChange={(e) =>
+                          setWorksSort(
+                            e.target.value as "default" | "newest" | "oldest" | "alphabetical",
+                          )
+                        }
+                        className="px-3 py-1.5 text-xs bg-background border border-primary/20 rounded-lg text-primary font-semibold focus:outline-none focus:border-primary cursor-pointer"
+                      >
+                        <option value="default">Default Order</option>
+                        <option value="newest">Newest First</option>
+                        <option value="oldest">Oldest First</option>
+                        <option value="alphabetical">Title (A-Z)</option>
+                      </select>
+                    </div>
                   </div>
 
                   <div className="divide-y divide-primary/10">
-                    {works.map((w) => (
+                    {processedWorks.map((w) => (
                       <div
                         key={w.id}
                         className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:bg-primary/1 transition-all"
@@ -1577,7 +1601,7 @@ function AdminPage() {
                                   <ImageIcon className="h-8 w-8 text-primary/30" />
                                 )}
 
-                                <label className="px-2.5 py-1 bg-primary/5 hover:bg-primary/10 border border-primary/20 text-[10px] font-bold uppercase rounded cursor-pointer text-center">
+                                <label className="w-full px-2.5 py-1 bg-primary/5 hover:bg-primary/10 border border-primary/20 text-[10px] font-bold uppercase rounded cursor-pointer text-center">
                                   <span>Upload Local File</span>
                                   <input
                                     type="file"
@@ -1586,6 +1610,16 @@ function AdminPage() {
                                     className="hidden"
                                   />
                                 </label>
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setMediaSelectorTarget({ type: "abstract", index })
+                                  }
+                                  className="w-full px-2.5 py-1 bg-primary/5 hover:bg-primary/10 border border-primary/20 text-[10px] font-bold uppercase rounded cursor-pointer text-center text-primary"
+                                >
+                                  Select from Library
+                                </button>
                               </div>
 
                               <div className="md:col-span-8 space-y-3">
@@ -1656,13 +1690,42 @@ function AdminPage() {
 
                 {/* CURRENT ABSTRACT SERIES LIST */}
                 <div className="bg-card border border-primary/15 rounded-xl overflow-hidden shadow-xs">
-                  <div className="px-6 py-4 border-b border-primary/10 bg-primary/2 flex justify-between items-center text-xs uppercase tracking-wider font-bold text-primary/70">
-                    <span>Active Abstract Series ({abstracts.length})</span>
-                    <span>Action Dashboard</span>
+                  <div className="px-6 py-4 border-b border-primary/10 bg-primary/2 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <span className="text-xs uppercase tracking-wider font-bold text-primary/70">
+                      Active Abstract Series ({processedAbstracts.length} of {abstracts.length})
+                    </span>
+
+                    {/* SEARCH & SORT TOOLBAR */}
+                    <div className="flex flex-wrap items-center gap-3">
+                      {/* Search */}
+                      <input
+                        type="text"
+                        placeholder="Search series..."
+                        value={abstractsSearch}
+                        onChange={(e) => setAbstractsSearch(e.target.value)}
+                        className="px-3 py-1.5 text-xs bg-background border border-primary/20 rounded-lg text-primary focus:outline-none focus:border-primary max-w-xs"
+                      />
+
+                      {/* Sort dropdown */}
+                      <select
+                        value={abstractsSort}
+                        onChange={(e) =>
+                          setAbstractsSort(
+                            e.target.value as "default" | "newest" | "oldest" | "alphabetical",
+                          )
+                        }
+                        className="px-3 py-1.5 text-xs bg-background border border-primary/20 rounded-lg text-primary font-semibold focus:outline-none focus:border-primary cursor-pointer"
+                      >
+                        <option value="default">Default Order</option>
+                        <option value="newest">Newest First</option>
+                        <option value="oldest">Oldest First</option>
+                        <option value="alphabetical">Title (A-Z)</option>
+                      </select>
+                    </div>
                   </div>
 
                   <div className="divide-y divide-primary/10">
-                    {abstracts.map((p) => (
+                    {processedAbstracts.map((p) => (
                       <div
                         key={p.id}
                         className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:bg-primary/1 transition-all"
@@ -2018,6 +2081,115 @@ function AdminPage() {
           </section>
         </div>
       </main>
+
+      {/* Universal Media Selector Overlay Modal */}
+      <AnimatePresence>
+        {mediaSelectorTarget !== null && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[150] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-card border-2 border-primary/25 rounded-2xl p-6 max-w-4xl w-full max-h-[85vh] flex flex-col shadow-2xl relative text-left"
+            >
+              <button
+                type="button"
+                onClick={() => setMediaSelectorTarget(null)}
+                className="absolute top-4 right-4 h-8 w-8 rounded-full border border-primary/20 hover:border-primary text-primary/70 hover:text-primary flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+
+              <h3 className="font-[family-name:var(--font-display)] text-2xl text-primary mb-2 flex items-center gap-2">
+                <Folder className="h-6 w-6 text-primary" />
+                <span>Select From Artwork Folder</span>
+              </h3>
+              <p className="text-xs text-primary/70 mb-6">
+                Click on any photo in your media library to instantly select it for this{" "}
+                {mediaSelectorTarget.type === "work" ? "artwork" : "abstract perspective"}.
+              </p>
+
+              {/* SEARCH FILTER */}
+              <div className="mb-4">
+                <input
+                  type="text"
+                  placeholder="Search files by name..."
+                  value={mediaSearch}
+                  onChange={(e) => setMediaSearch(e.target.value)}
+                  className="w-full px-4 py-2 border border-primary/20 bg-background rounded-lg text-xs focus:outline-none focus:border-primary"
+                />
+              </div>
+
+              {/* IMAGES GRID */}
+              <div className="flex-1 overflow-y-auto min-h-[300px] max-h-[50vh] pr-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                  {mediaLibrary
+                    .filter((m) => m.filename.toLowerCase().includes(mediaSearch.toLowerCase()))
+                    .map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => {
+                          if (mediaSelectorTarget.type === "work") {
+                            setWorkForm((prev) => ({ ...prev, url: m.url }));
+                          } else if (
+                            mediaSelectorTarget.type === "abstract" &&
+                            mediaSelectorTarget.index !== undefined
+                          ) {
+                            updateAbstractPhotoInForm(mediaSelectorTarget.index, "url", m.url);
+                          }
+                          setMediaSelectorTarget(null);
+                          showToast(`Selected image: ${m.filename}`);
+                        }}
+                        className="group flex flex-col text-left border border-primary/10 hover:border-primary/50 bg-background rounded-xl p-2 transition-all cursor-pointer hover:-translate-y-0.5 hover:shadow-md"
+                      >
+                        <div className="aspect-square rounded-lg overflow-hidden border border-primary/10 bg-primary/2 w-full relative">
+                          <img
+                            src={m.url}
+                            alt={m.filename}
+                            className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            referrerPolicy="no-referrer"
+                          />
+                        </div>
+                        <span
+                          className="text-[10px] font-mono font-bold mt-2 text-primary/80 block truncate max-w-full"
+                          title={m.filename}
+                        >
+                          {m.filename}
+                        </span>
+                        <span className="text-[8px] text-primary/50 block font-semibold">
+                          Added: {new Date(m.addedAt).toLocaleDateString()}
+                        </span>
+                      </button>
+                    ))}
+
+                  {mediaLibrary.length === 0 && (
+                    <div className="col-span-full py-12 text-center text-sm text-primary/50">
+                      No images found. Please upload images to the "Artwork Folder" tab first!
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="border-t border-primary/10 pt-4 mt-4 flex justify-between items-center text-xs">
+                <span className="text-primary/60">
+                  Total items in library: <strong>{mediaLibrary.length}</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMediaSelectorTarget(null);
+                    setActiveTab("media");
+                  }}
+                  className="px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary font-semibold text-xs rounded-lg transition-colors cursor-pointer"
+                >
+                  Manage Artwork Folder
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Custom Confirmation Modal */}
       <AnimatePresence>
