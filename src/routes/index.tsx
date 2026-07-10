@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion as framerMotion } from "framer-motion";
+import { useMemo, useState } from "react";
 import { heroImage, type Work } from "../lib/works";
 import { STUDIO as staticStudio } from "../lib/studio";
 import { useWorks, useAbstracts, useStudio } from "../lib/store";
@@ -127,22 +128,66 @@ function Hero() {
 
 function Featured({ items }: { items: Work[] }) {
   const STUDIO = useStudio();
+  const [sortBy, setSortBy] = useState<"default" | "newest" | "oldest" | "alphabetical">("default");
+
+  const parseIdToValue = (id: string) => {
+    if (id.startsWith("w-")) {
+      return parseInt(id.split("-")[1]) || 0;
+    }
+    const match = id.match(/^w(\d+)$/);
+    if (match) {
+      return parseInt(match[1]);
+    }
+    return 0;
+  };
+
+  const sortedItems = useMemo(() => {
+    const result = [...items];
+    if (sortBy === "newest") {
+      result.sort((a, b) => parseIdToValue(b.id) - parseIdToValue(a.id));
+    } else if (sortBy === "oldest") {
+      result.sort((a, b) => parseIdToValue(a.id) - parseIdToValue(b.id));
+    } else if (sortBy === "alphabetical") {
+      result.sort((a, b) => a.title.localeCompare(b.title));
+    }
+    return result;
+  }, [items, sortBy]);
+
   return (
     <section className="px-6 py-24">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6 border-b-2 border-primary/25 pb-6">
+        <div className="mb-12 flex flex-col sm:flex-row sm:items-end justify-between gap-6 border-b-2 border-primary/25 pb-6">
           <h2 className="font-[family-name:var(--font-display)] text-primary text-5xl md:text-7xl -rotate-1 leading-none">
             Featured Work
           </h2>
-          <Link
-            to="/gallery"
-            className="text-xs uppercase tracking-[0.3em] text-primary hover:opacity-70 underline underline-offset-8 decoration-2"
-          >
-            View full gallery →
-          </Link>
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] uppercase tracking-wider text-primary/60 font-semibold">
+                Sort By:
+              </span>
+              <select
+                value={sortBy}
+                onChange={(e) =>
+                  setSortBy(e.target.value as "default" | "newest" | "oldest" | "alphabetical")
+                }
+                className="px-3 py-1.5 border border-primary/20 bg-background text-primary rounded-lg text-xs font-semibold focus:outline-none focus:border-primary cursor-pointer"
+              >
+                <option value="default">Default</option>
+                <option value="newest">Newest</option>
+                <option value="oldest">Oldest</option>
+                <option value="alphabetical">Title (A-Z)</option>
+              </select>
+            </div>
+            <Link
+              to="/gallery"
+              className="text-xs uppercase tracking-[0.3em] text-primary hover:opacity-70 underline underline-offset-8 decoration-2 shrink-0"
+            >
+              View full gallery →
+            </Link>
+          </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {items.map((w, i) => (
+          {sortedItems.map((w, i) => (
             <framerMotion.figure
               key={w.id}
               initial={{ opacity: 0, y: 30 }}

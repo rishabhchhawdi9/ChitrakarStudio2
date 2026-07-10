@@ -36,6 +36,7 @@ import {
   Mail,
   Instagram,
   ExternalLink,
+  RefreshCw,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin")({
@@ -114,6 +115,50 @@ function AdminPage() {
     instagramHandle: "",
     pinterest: "",
   });
+
+  // Drag and drop / upload state
+  const [isDragActive, setIsDragActive] = useState(false);
+  const [uploadState, setUploadState] = useState<{
+    isUploading: boolean;
+    current: number;
+    total: number;
+    filename: string;
+  }>({
+    isUploading: false,
+    current: 0,
+    total: 0,
+    filename: "",
+  });
+
+  // Custom Confirmation Modal state
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    confirmText?: string;
+    cancelText?: string;
+    isDestructive?: boolean;
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+  });
+
+  const triggerConfirm = (params: {
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    confirmText?: string;
+    cancelText?: string;
+    isDestructive?: boolean;
+  }) => {
+    setConfirmModal({
+      isOpen: true,
+      ...params,
+    });
+  };
 
   // Helper to trigger toast notifications
   const showToast = (message: string, type: ToastType = "success") => {
@@ -233,23 +278,47 @@ function AdminPage() {
   };
 
   // Image upload handler for Media Library (bulk upload)
-  const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
+  const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent) => {
+    let files: FileList | null = null;
+    if ("dataTransfer" in e) {
+      files = e.dataTransfer.files;
+    } else {
+      files = e.target.files;
+    }
     if (!files || files.length === 0) return;
+
+    setUploadState({
+      isUploading: true,
+      current: 0,
+      total: files.length,
+      filename: files[0].name,
+    });
 
     try {
       showToast(`Compressing & adding ${files.length} image(s)...`, "info");
       let addedCount = 0;
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
+        if (!file.type.startsWith("image/")) {
+          showToast(`Skipped non-image file: ${file.name}`, "error");
+          continue;
+        }
+        setUploadState((prev) => ({ ...prev, current: i + 1, filename: file.name }));
         const base64 = await compressImage(file);
-        storeActions.addMedia(base64, file.name);
+        await storeActions.addMedia(base64, file.name);
         addedCount++;
       }
       showToast(`Successfully imported ${addedCount} image(s) to Artwork Folder!`);
     } catch (err) {
       console.error(err);
       showToast("Failed to process some images.", "error");
+    } finally {
+      setUploadState({
+        isUploading: false,
+        current: 0,
+        total: 0,
+        filename: "",
+      });
     }
   };
 
@@ -311,10 +380,16 @@ function AdminPage() {
   };
 
   const deleteWork = (id: string, title: string) => {
-    if (confirm(`Are you sure you want to delete "${title}"?`)) {
-      storeActions.deleteWork(id);
-      showToast(`Deleted "${title}".`);
-    }
+    triggerConfirm({
+      title: "Delete Artwork",
+      message: `Are you sure you want to delete "${title}"? This action cannot be undone.`,
+      confirmText: "Delete",
+      isDestructive: true,
+      onConfirm: () => {
+        storeActions.deleteWork(id);
+        showToast(`Deleted "${title}".`);
+      },
+    });
   };
 
   // SUBMIT STUDIO INFO
@@ -428,10 +503,16 @@ function AdminPage() {
   };
 
   const deleteAbstract = (id: string, title: string) => {
-    if (confirm(`Are you sure you want to delete the series "${title}"?`)) {
-      storeActions.deleteAbstract(id);
-      showToast(`Deleted abstract series "${title}".`);
-    }
+    triggerConfirm({
+      title: "Delete Abstract Series",
+      message: `Are you sure you want to delete the abstract series "${title}"? This action cannot be undone.`,
+      confirmText: "Delete",
+      isDestructive: true,
+      onConfirm: () => {
+        storeActions.deleteAbstract(id);
+        showToast(`Deleted abstract series "${title}".`);
+      },
+    });
   };
 
   // BACKUP OPERATIONS
@@ -470,14 +551,17 @@ function AdminPage() {
   };
 
   const resetStoreToDefaults = () => {
-    if (
-      confirm(
-        "Are you absolutely sure? This will wipe out all of your custom edits, uploaded images, and custom studio text, resetting the site back to original hardcoded files.",
-      )
-    ) {
-      storeActions.resetToDefaults();
-      showToast("Restored original site templates.", "info");
-    }
+    triggerConfirm({
+      title: "Restore Original Templates",
+      message:
+        "Are you absolutely sure? This will wipe out all of your custom edits, uploaded images, and custom studio text, resetting the site back to original hardcoded templates.",
+      confirmText: "Restore Defaults",
+      isDestructive: true,
+      onConfirm: () => {
+        storeActions.resetToDefaults();
+        showToast("Restored original site templates.", "info");
+      },
+    });
   };
 
   // Gated login rendering
@@ -1663,30 +1747,74 @@ function AdminPage() {
                 </div>
 
                 {/* BULK UPLOAD DROPZONE */}
-                <div className="border border-primary/15 bg-card rounded-2xl p-8 flex flex-col items-center justify-center text-center space-y-4">
-                  <div className="h-14 w-14 bg-primary/10 rounded-full flex items-center justify-center border text-primary border-primary/20">
-                    <Upload className="h-6 w-6" />
-                  </div>
-                  <div className="space-y-1">
-                    <h3 className="font-semibold text-primary text-base">
-                      Bulk Upload Downloaded Paintings
-                    </h3>
-                    <p className="text-xs opacity-75 max-w-lg leading-relaxed">
-                      Select multiple files at once. All images are automatically optimized,
-                      compressed, and saved locally in your repository cache.
-                    </p>
-                  </div>
-                  <label className="px-6 py-3 bg-primary text-primary-foreground font-bold text-xs uppercase tracking-wider rounded-lg hover:opacity-95 cursor-pointer transition-all inline-flex items-center gap-2">
-                    <Plus className="h-4 w-4" />
-                    <span>Upload Image Files</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={handleMediaUpload}
-                      className="hidden"
-                    />
-                  </label>
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsDragActive(true);
+                  }}
+                  onDragLeave={() => setIsDragActive(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setIsDragActive(false);
+                    handleMediaUpload(e);
+                  }}
+                  className={`border-2 border-dashed rounded-2xl p-10 flex flex-col items-center justify-center text-center space-y-4 transition-all duration-300 ${
+                    isDragActive
+                      ? "border-primary bg-primary/5 scale-[1.01] shadow-inner"
+                      : "border-primary/15 bg-card hover:border-primary/35"
+                  }`}
+                >
+                  {uploadState.isUploading ? (
+                    <div className="space-y-4 py-4 w-full max-w-md">
+                      <div className="h-14 w-14 bg-primary/10 rounded-full flex items-center justify-center border text-primary border-primary/20 mx-auto">
+                        <RefreshCw className="h-6 w-6 animate-spin" />
+                      </div>
+                      <div className="space-y-2">
+                        <h3 className="font-semibold text-primary text-base">
+                          Processing &amp; Storing Images...
+                        </h3>
+                        <p className="text-xs text-primary/70 truncate px-4">
+                          File {uploadState.current} of {uploadState.total}:{" "}
+                          <strong className="font-mono text-primary font-semibold">
+                            {uploadState.filename}
+                          </strong>
+                        </p>
+                        <div className="w-full h-2 bg-primary/10 rounded-full overflow-hidden mt-3">
+                          <div
+                            className="h-full bg-primary transition-all duration-300 rounded-full"
+                            style={{ width: `${(uploadState.current / uploadState.total) * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="h-14 w-14 bg-primary/10 rounded-full flex items-center justify-center border text-primary border-primary/20">
+                        <Upload className="h-6 w-6" />
+                      </div>
+                      <div className="space-y-1">
+                        <h3 className="font-semibold text-primary text-base">
+                          Bulk Upload Artwork Images
+                        </h3>
+                        <p className="text-xs opacity-75 max-w-lg leading-relaxed">
+                          Drag and drop files directly here, or click to browse. Selected images are
+                          automatically optimized, compressed, and saved locally in your repository
+                          cache.
+                        </p>
+                      </div>
+                      <label className="px-6 py-3 bg-primary text-primary-foreground font-bold text-xs uppercase tracking-wider rounded-lg hover:opacity-95 cursor-pointer transition-all inline-flex items-center gap-2">
+                        <Plus className="h-4 w-4" />
+                        <span>Upload Image Files</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={handleMediaUpload}
+                          className="hidden"
+                        />
+                      </label>
+                    </>
+                  )}
                 </div>
 
                 {/* MEDIA LIBRARY GRID */}
@@ -1771,10 +1899,16 @@ function AdminPage() {
                               </button>
                               <button
                                 onClick={() => {
-                                  if (confirm(`Are you sure you want to delete ${m.filename}?`)) {
-                                    storeActions.deleteMedia(m.id);
-                                    showToast("Deleted from Artwork Folder.");
-                                  }
+                                  triggerConfirm({
+                                    title: "Delete Stored Photo",
+                                    message: `Are you sure you want to delete "${m.filename}"? This will remove it from your storage folder.`,
+                                    confirmText: "Delete",
+                                    isDestructive: true,
+                                    onConfirm: () => {
+                                      storeActions.deleteMedia(m.id);
+                                      showToast("Deleted from Artwork Folder.");
+                                    },
+                                  });
                                 }}
                                 className="px-2 py-2 border border-red-500/10 hover:border-red-500/20 text-red-500 hover:bg-red-500/5 text-[10px] font-bold uppercase rounded-lg transition-colors flex items-center justify-center gap-1 cursor-pointer"
                                 title="Remove photo"
@@ -1884,6 +2018,57 @@ function AdminPage() {
           </section>
         </div>
       </main>
+
+      {/* Custom Confirmation Modal */}
+      <AnimatePresence>
+        {confirmModal.isOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 10 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 10 }}
+              className="bg-card border-2 border-primary/20 rounded-2xl max-w-md w-full p-6 shadow-2xl relative"
+            >
+              <button
+                onClick={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
+                className="absolute top-4 right-4 text-primary/55 hover:text-primary transition-colors cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+              <h3 className="font-[family-name:var(--font-display)] text-2xl text-primary mb-2">
+                {confirmModal.title}
+              </h3>
+              <p className="text-sm opacity-75 leading-relaxed mb-6">{confirmModal.message}</p>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
+                  className="px-4 py-2 border border-primary/15 hover:bg-primary/5 text-primary rounded-lg text-xs font-semibold uppercase tracking-wider cursor-pointer"
+                >
+                  {confirmModal.cancelText || "Cancel"}
+                </button>
+                <button
+                  onClick={() => {
+                    confirmModal.onConfirm();
+                    setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+                  }}
+                  className={`px-4 py-2 text-white rounded-lg text-xs font-semibold uppercase tracking-wider cursor-pointer ${
+                    confirmModal.isDestructive
+                      ? "bg-red-600 hover:bg-red-700"
+                      : "bg-primary hover:opacity-90 text-primary-foreground"
+                  }`}
+                >
+                  {confirmModal.confirmText || "Confirm"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

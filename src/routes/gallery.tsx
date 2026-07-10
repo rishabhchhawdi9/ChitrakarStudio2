@@ -36,11 +36,30 @@ function GalleryPage() {
   const [filter, setFilter] = useState<Category | "All">("All");
   const [active, setActive] = useState<Work | null>(null);
   const [activePin, setActivePin] = useState<PinterestPin | null>(null);
+  const [sortBy, setSortBy] = useState<"default" | "newest" | "oldest" | "alphabetical">("default");
 
-  const filtered = useMemo(
-    () => (filter === "All" ? works : works.filter((w) => w.category === filter)),
-    [filter, works],
-  );
+  const parseIdToValue = (id: string) => {
+    if (id.startsWith("w-")) {
+      return parseInt(id.split("-")[1]) || 0;
+    }
+    const match = id.match(/^w(\d+)$/);
+    if (match) {
+      return parseInt(match[1]);
+    }
+    return 0;
+  };
+
+  const sortedAndFiltered = useMemo(() => {
+    const result = filter === "All" ? [...works] : works.filter((w) => w.category === filter);
+    if (sortBy === "newest") {
+      result.sort((a, b) => parseIdToValue(b.id) - parseIdToValue(a.id));
+    } else if (sortBy === "oldest") {
+      result.sort((a, b) => parseIdToValue(a.id) - parseIdToValue(b.id));
+    } else if (sortBy === "alphabetical") {
+      result.sort((a, b) => a.title.localeCompare(b.title));
+    }
+    return result;
+  }, [filter, works, sortBy]);
 
   // React Query for live Pinterest feed
   const {
@@ -100,29 +119,50 @@ function GalleryPage() {
 
         {viewMode === "studio" ? (
           <>
-            <div className="flex flex-wrap gap-2 mb-10">
-              {(["All", ...CATEGORIES] as const).map((c) => {
-                const on = filter === c;
-                return (
-                  <button
-                    key={c}
-                    onClick={() => setFilter(c)}
-                    className={
-                      "px-4 py-2 rounded-full text-xs uppercase tracking-[0.2em] border-2 cursor-pointer transition-colors " +
-                      (on
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "border-primary/30 text-primary hover:border-primary")
-                    }
-                  >
-                    {c}
-                  </button>
-                );
-              })}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
+              <div className="flex flex-wrap gap-2">
+                {(["All", ...CATEGORIES] as const).map((c) => {
+                  const on = filter === c;
+                  return (
+                    <button
+                      key={c}
+                      onClick={() => setFilter(c)}
+                      className={
+                        "px-4 py-2 rounded-full text-xs uppercase tracking-[0.2em] border-2 cursor-pointer transition-colors " +
+                        (on
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "border-primary/30 text-primary hover:border-primary")
+                      }
+                    >
+                      {c}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Sort Selector */}
+              <div className="flex items-center gap-2 self-end md:self-auto">
+                <span className="text-xs uppercase tracking-wider text-primary/60 font-semibold">
+                  Sort By:
+                </span>
+                <select
+                  value={sortBy}
+                  onChange={(e) =>
+                    setSortBy(e.target.value as "default" | "newest" | "oldest" | "alphabetical")
+                  }
+                  className="px-3 py-1.5 border border-primary/20 bg-background text-primary rounded-lg text-xs font-semibold focus:outline-none focus:border-primary cursor-pointer"
+                >
+                  <option value="default">Default</option>
+                  <option value="newest">Newest Artworks</option>
+                  <option value="oldest">Oldest Artworks</option>
+                  <option value="alphabetical">Title (A-Z)</option>
+                </select>
+              </div>
             </div>
 
             <div className="columns-1 sm:columns-2 lg:columns-3 gap-6 space-y-6">
               <AnimatePresence mode="popLayout">
-                {filtered.map((w, i) => (
+                {sortedAndFiltered.map((w, i) => (
                   <motion.figure
                     key={w.id}
                     layout
@@ -272,11 +312,6 @@ function GalleryPage() {
                         <p className="font-[family-name:var(--font-display)] text-primary text-base leading-tight group-hover:text-red-600 transition-colors">
                           {pin.title}
                         </p>
-                        {pin.caption && pin.caption !== pin.title && (
-                          <p className="mt-1 text-xs text-primary/70 line-clamp-2 leading-relaxed">
-                            {pin.caption}
-                          </p>
-                        )}
                       </figcaption>
                     </motion.figure>
                   ))}
@@ -358,11 +393,6 @@ function GalleryPage() {
                 <h2 className="font-[family-name:var(--font-display)] text-3xl mt-2 leading-tight">
                   {activePin.title}
                 </h2>
-                {activePin.caption && activePin.caption !== activePin.title && (
-                  <p className="mt-4 text-sm opacity-90 leading-relaxed max-h-[250px] overflow-y-auto pr-2">
-                    {activePin.caption}
-                  </p>
-                )}
                 <div className="mt-8 flex flex-col gap-3">
                   <a
                     href={activePin.url}

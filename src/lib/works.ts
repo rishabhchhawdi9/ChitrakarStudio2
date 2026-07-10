@@ -156,6 +156,166 @@ export const works: Work[] = [
     category: "Portrait",
     caption: "Portrait commission in progress.",
   },
+  {
+    id: "w21",
+    url: "/__l5e/assets-v1/fd190e03-f395-4ef8-a202-32824b3b2cff/art1.jpg",
+    title: "Symphony of Rust & Indigo",
+    category: "Canvas",
+    caption:
+      "Tactile study of natural oxidation and fluid currents, showing the tense contrast between rust textures and deep indigo flows.",
+  },
+  {
+    id: "w22",
+    url: "/__l5e/assets-v1/8a032607-5695-434c-848a-f79239a8c720/art2.jpg",
+    title: "Heavy Gesso Fissure",
+    category: "Canvas",
+    caption:
+      "Macro detail of the central heavily-plastered fissure, showing the physical depth of the gesso on wood panel.",
+  },
+  {
+    id: "w23",
+    url: "/__l5e/assets-v1/746402fa-9e9f-4fc9-90fd-30e3103f24ac/art3.jpg",
+    title: "Studio Raking Light Study",
+    category: "Interior",
+    caption:
+      "Studio perspective under natural raking light, emphasizing the sculpted surface and physical contours.",
+  },
+  {
+    id: "w24",
+    url: "/__l5e/assets-v1/49a9fd98-2422-4b07-ac2f-e67b7222212b/art4.jpg",
+    title: "Minimalist Living Installation",
+    category: "Interior",
+    caption:
+      "Scale reference showcasing the finished abstract cradled wood panel installed in a modern neutral living room setting.",
+  },
+  {
+    id: "w25",
+    url: "/__l5e/assets-v1/9da52da2-da4e-4f3e-b2bb-49c7eba1da77/art6.jpg",
+    title: "Ethereal Echoes of Silent Arcs",
+    category: "Wall Art",
+    caption:
+      "Elegant composition featuring overlapping archways, sweeping geometric curves, and soft, muted cream gradients.",
+  },
+  {
+    id: "w26",
+    url: "/__l5e/assets-v1/86415dab-7062-4ab2-84c6-5ee65df50e86/art7.jpg",
+    title: "Marble Dust Impasto",
+    category: "Canvas",
+    caption:
+      "Tactile close-up of the dry impasto texture where the custom marble dust plaster meets the raw Belgian linen.",
+  },
+  {
+    id: "w27",
+    url: "/__l5e/assets-v1/22cdc4ce-8c59-446f-9f38-d44d3277e246/art8.jpg",
+    title: "Warm Studio Horizon Light",
+    category: "Interior",
+    caption:
+      "Warm afternoon light hitting the canvas in the studio, highlighting the dry, mineral texture and organic fabric weave.",
+  },
+  {
+    id: "w28",
+    url: "/__l5e/assets-v1/26fccac3-fe61-4272-8579-48c057d1a41d/art10.jpg",
+    title: "Gallery Monumental Installation",
+    category: "Interior",
+    caption:
+      "Gallery installation preview, displaying the monumental presence of the geometric arches against a dark wall.",
+  },
+  {
+    id: "w29",
+    url: "/__l5e/assets-v1/fb0e4be6-6ced-412e-b0a9-f3c17eb363ee/art11.jpg",
+    title: "Fractured Horizon Main Panel",
+    category: "Canvas",
+    caption:
+      "Main panel view illustrating the stark vertical divides, rough charcoal washes, and reflective gold leaf veins.",
+  },
+  {
+    id: "w30",
+    url: "/__l5e/assets-v1/d0a52f1a-ecf0-47a2-a0c7-961156c89029/art12.jpg",
+    title: "Gold Leaf and Charcoal Horizon",
+    category: "Canvas",
+    caption:
+      "Detailed landscape view demonstrating the transition of delicate 24k gold leafing into heavy charcoal dust layers.",
+  },
+  {
+    id: "w31",
+    url: "/__l5e/assets-v1/77a0ebbb-4d8d-4d0b-b861-edd7a86af551/art13.jpg",
+    title: "Easel Graphite Gloss Study",
+    category: "Interior",
+    caption:
+      "Angle view on the active easel showing the raw painterly edge treatment and reflective graphite gloss.",
+  },
+  {
+    id: "w32",
+    url: "/__l5e/assets-v1/6311e116-f8fd-4a9a-b69d-f903fb801c0b/art14.jpg",
+    title: "24k Gold Leaf Crinkle Detail",
+    category: "Canvas",
+    caption:
+      "Extreme close-up showing the shimmering, metallic crinkling of the 24k gold leaf layered over carbon.",
+  },
+  {
+    id: "w33",
+    url: "/__l5e/assets-v1/ab39f5bd-8327-440b-bf0b-0c8dee68ebc6/art15.jpg",
+    title: "Primal Obsidian & Ochre Main Panel",
+    category: "Canvas",
+    caption:
+      "Complete composition showing energetic soot-black strokes slicing across a warm sienna and natural ochre background.",
+  },
+  {
+    id: "w34",
+    url: "/__l5e/assets-v1/8ef86b8b-9101-4930-b57e-4b5241f70fc7/art16.jpg",
+    title: "Volcanic Sand Charcoal Sweep",
+    category: "Canvas",
+    caption:
+      "Close-up of the energetic charcoal sweep, revealing the underlying granular volcanic sand texture.",
+  },
+  {
+    id: "w35",
+    url: "/__l5e/assets-v1/7c21b286-cac7-46f1-8884-70a7898061c6/art17.jpg",
+    title: "Sienna Glaze Layering",
+    category: "Canvas",
+    caption:
+      "Detail showing transparent glaze layers of raw sienna built up over dark, dense acrylic gestures.",
+  },
+  {
+    id: "w36",
+    url: "/__l5e/assets-v1/025681a5-1ede-4001-b340-bab6fbe05e3c/art18.jpg",
+    title: "Gallery-Wrap Finished Edge",
+    category: "Interior",
+    caption:
+      "Framing view highlighting the raw, painted gallery-wrap edges of the museum-grade heavy canvas.",
+  },
+  {
+    id: "w37",
+    url: "/__l5e/assets-v1/6fc86596-e344-407b-a03e-88c66658a254/art19.jpg",
+    title: "Monolithic Echoes Front View",
+    category: "Canvas",
+    caption:
+      "Main front view highlighting the imposing, tall monolith, vertical mass, and subtle texture gradient.",
+  },
+  {
+    id: "w38",
+    url: "/__l5e/assets-v1/2cbf303d-2975-450f-82e9-37a35f0d83c0/art20.jpg",
+    title: "Hand-Troweled Sculptural Relief",
+    category: "Canvas",
+    caption:
+      "Texture close-up of the hand-troweled sculptural ridges running the full height of the dark block on linen.",
+  },
+  {
+    id: "w39",
+    url: "/__l5e/assets-v1/c49c3520-2c83-4987-9ab7-5d6f8519180c/art22.jpg",
+    title: "Side-Lit Monolith Depth",
+    category: "Interior",
+    caption:
+      "Studio photo capturing the depth of the relief shadow cast under soft side-window illumination.",
+  },
+  {
+    id: "w40",
+    url: "/__l5e/assets-v1/bd026e1f-273d-4057-b381-4f8ed9207588/art23.jpg",
+    title: "Boardroom Scale Installation",
+    category: "Commercial",
+    caption:
+      "Installed context showcasing the monolithic scale against a tall ceiling in a contemporary commercial boardroom.",
+  },
 ];
 
 export const CATEGORIES: Category[] = [

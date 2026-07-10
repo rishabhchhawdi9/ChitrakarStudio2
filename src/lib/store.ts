@@ -66,9 +66,26 @@ export interface FirestoreErrorInfo {
   };
 }
 
-function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+function handleFirestoreError(
+  error: unknown,
+  operationType: OperationType,
+  path: string | null,
+  shouldThrow = true,
+) {
+  const errMessage = error instanceof Error ? error.message : String(error);
+
+  // Ignore or gracefully handle benign, transient, or idle stream disconnection messages
+  if (
+    errMessage.includes("Disconnecting idle stream") ||
+    errMessage.includes("Timed out waiting for new targets") ||
+    errMessage.includes("CANCELLED")
+  ) {
+    console.warn("Firestore transient/idle stream disconnect (benign):", errMessage);
+    return;
+  }
+
   const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: errMessage,
     authInfo: {
       userId: null,
       email: null,
@@ -81,7 +98,9 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
     path,
   };
   console.error("Firestore Error: ", JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  if (shouldThrow) {
+    throw new Error(JSON.stringify(errInfo));
+  }
 }
 
 // Check and initialize Firestore if empty
@@ -98,6 +117,15 @@ async function initFirestoreIfNeeded() {
       console.log("Initializing Firestore works with defaults...");
       for (const w of defaultWorks) {
         await setDoc(doc(db, "works", w.id), w);
+      }
+    } else {
+      // Add any missing default works (like newly added Instagram photos)
+      const existingIds = new Set(worksSnap.docs.map((d) => d.id));
+      for (const w of defaultWorks) {
+        if (!existingIds.has(w.id)) {
+          console.log(`Adding missing default work ${w.id} to Firestore...`);
+          await setDoc(doc(db, "works", w.id), w);
+        }
       }
     }
 
@@ -127,6 +155,15 @@ async function initFirestoreIfNeeded() {
       for (const m of defaultMedia) {
         await setDoc(doc(db, "media", m.id), m);
       }
+    } else {
+      // Add any missing default media items
+      const existingIds = new Set(mediaSnap.docs.map((d) => d.id));
+      for (const m of defaultMedia) {
+        if (!existingIds.has(m.id)) {
+          console.log(`Adding missing default media item ${m.id} to Firestore...`);
+          await setDoc(doc(db, "media", m.id), m);
+        }
+      }
     }
   } catch (err) {
     console.error("Failed to initialize Firestore collections:", err);
@@ -149,7 +186,7 @@ if (typeof window !== "undefined") {
         notify();
       },
       (error) => {
-        handleFirestoreError(error, OperationType.GET, "works");
+        handleFirestoreError(error, OperationType.GET, "works", false);
       },
     );
 
@@ -166,7 +203,7 @@ if (typeof window !== "undefined") {
         notify();
       },
       (error) => {
-        handleFirestoreError(error, OperationType.GET, "abstracts");
+        handleFirestoreError(error, OperationType.GET, "abstracts", false);
       },
     );
 
@@ -180,7 +217,7 @@ if (typeof window !== "undefined") {
         }
       },
       (error) => {
-        handleFirestoreError(error, OperationType.GET, "studio/info");
+        handleFirestoreError(error, OperationType.GET, "studio/info", false);
       },
     );
 
@@ -197,7 +234,7 @@ if (typeof window !== "undefined") {
         notify();
       },
       (error) => {
-        handleFirestoreError(error, OperationType.GET, "media");
+        handleFirestoreError(error, OperationType.GET, "media", false);
       },
     );
   });
