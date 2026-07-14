@@ -1,12 +1,21 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useMemo, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CATEGORIES, heroImage, type Category, type Work } from "../lib/works";
 import { STUDIO as staticStudio } from "../lib/studio";
 import { useWorks, useStudio } from "../lib/store";
 import { getPinterestFeed, type PinterestPin } from "../lib/pinterest";
 import { useQuery } from "@tanstack/react-query";
-import { ExternalLink, RefreshCw, Eye } from "lucide-react";
+import {
+  ExternalLink,
+  RefreshCw,
+  Eye,
+  Maximize2,
+  Minimize2,
+  ArrowLeft,
+  ArrowRight,
+  X,
+} from "lucide-react";
 
 export const Route = createFileRoute("/gallery")({
   head: () => ({
@@ -34,12 +43,47 @@ function GalleryPage() {
   const STUDIO = useStudio();
   const [viewMode, setViewMode] = useState<"studio" | "pinterest">("studio");
   const [filter, setFilter] = useState<Category | "All">("All");
+
+  // Lightbox State
   const [active, setActive] = useState<Work | null>(null);
   const [activePin, setActivePin] = useState<PinterestPin | null>(null);
+  const [isZoomed, setIsZoomed] = useState(false);
 
   const filteredWorks = useMemo(() => {
-    return filter === "All" ? works : works.filter((w) => w.category === filter);
+    // Hide exclusive pieces from the main gallery unless explicitly sorted or they fit
+    // Wait, let's show all published works, sorting by ID
+    const baseWorks = works.filter((w) => !w.exclusive);
+    return filter === "All" ? baseWorks : baseWorks.filter((w) => w.category === filter);
   }, [filter, works]);
+
+  // Related works for the active work inside the lightbox (from the same category)
+  const relatedWorks = useMemo(() => {
+    if (!active) return [];
+    return works.filter((w) => w.category === active.category && w.id !== active.id).slice(0, 6);
+  }, [active, works]);
+
+  // Handle keyboard navigation inside the related strip
+  useEffect(() => {
+    if (!active) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setActive(null);
+        setIsZoomed(false);
+      } else if (e.key === "ArrowRight" && relatedWorks.length > 0) {
+        // Swap to the first related work
+        setActive(relatedWorks[0]);
+        setIsZoomed(false);
+      } else if (e.key === "ArrowLeft" && relatedWorks.length > 0) {
+        // Swap to the last related work
+        setActive(relatedWorks[relatedWorks.length - 1]);
+        setIsZoomed(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [active, relatedWorks]);
 
   // React Query for live Pinterest feed
   const {
@@ -59,37 +103,39 @@ function GalleryPage() {
   });
 
   return (
-    <section className="px-6 py-16 md:py-24">
+    <section className="px-6 py-16 md:py-24 bg-background">
       <div className="mx-auto max-w-7xl">
-        <header className="mb-10">
-          <p className="text-xs uppercase tracking-[0.4em] text-primary/70 mb-4">The Studio Wall</p>
+        <header className="mb-14">
+          <p className="text-xs uppercase tracking-[0.4em] text-primary/70 mb-4 font-semibold">
+            The Studio Wall
+          </p>
           <h1 className="font-[family-name:var(--font-display)] text-primary text-6xl md:text-8xl -rotate-1 leading-none">
             Gallery
           </h1>
-          <p className="mt-6 max-w-xl text-base md:text-lg">
-            A curated wall from the studio. Toggle below to see our main catalog or our live
-            Pinterest workbench.
+          <p className="mt-6 max-w-xl text-base md:text-lg text-primary/80 leading-relaxed">
+            A curated showcase from the studio floor. Explore our hand-painted catalog or sync with
+            our live Pinterest work desk.
           </p>
         </header>
 
         {/* View Mode Toggle */}
-        <div className="flex gap-6 mb-10 border-b-2 border-primary/10 pb-4">
+        <div className="flex gap-6 mb-12 border-b-2 border-primary/10 pb-4">
           <button
             onClick={() => setViewMode("studio")}
-            className={`pb-2 text-sm uppercase tracking-[0.2em] font-medium border-b-2 transition-all relative cursor-pointer ${
+            className={`pb-2 text-sm uppercase tracking-[0.2em] font-bold border-b-2 transition-all relative cursor-pointer ${
               viewMode === "studio"
                 ? "border-primary text-primary"
-                : "border-transparent text-primary/60 hover:text-primary"
+                : "border-transparent text-primary/50 hover:text-primary"
             }`}
           >
             Curated Catalog
           </button>
           <button
             onClick={() => setViewMode("pinterest")}
-            className={`pb-2 text-sm uppercase tracking-[0.2em] font-medium border-b-2 transition-all relative flex items-center gap-2 cursor-pointer ${
+            className={`pb-2 text-sm uppercase tracking-[0.2em] font-bold border-b-2 transition-all relative flex items-center gap-2 cursor-pointer ${
               viewMode === "pinterest"
                 ? "border-primary text-primary"
-                : "border-transparent text-primary/60 hover:text-primary"
+                : "border-transparent text-primary/50 hover:text-primary"
             }`}
           >
             Live Pinterest Feed
@@ -99,63 +145,104 @@ function GalleryPage() {
 
         {viewMode === "studio" ? (
           <>
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
-              <div className="flex flex-wrap gap-2">
+            {/* Category Filter Pills */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-12">
+              <div className="flex flex-wrap gap-3">
                 {(["All", ...CATEGORIES] as const).map((c) => {
                   const on = filter === c;
                   return (
                     <button
                       key={c}
                       onClick={() => setFilter(c)}
-                      className={
-                        "px-4 py-2 rounded-full text-xs uppercase tracking-[0.2em] border-2 cursor-pointer transition-colors " +
-                        (on
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "border-primary/30 text-primary hover:border-primary")
-                      }
+                      className="relative px-5 py-2.5 rounded-full text-[11px] uppercase tracking-[0.2em] font-bold cursor-pointer transition-colors"
                     >
-                      {c}
+                      <span
+                        className={`relative z-10 ${on ? "text-primary-foreground" : "text-primary/70 hover:text-primary"}`}
+                      >
+                        {c}
+                      </span>
+                      {on && (
+                        <motion.div
+                          layoutId="activeCategoryPill"
+                          className="absolute inset-0 bg-primary rounded-full -z-0"
+                          transition={{ type: "spring", stiffness: 350, damping: 25 }}
+                        />
+                      )}
+                      {!on && (
+                        <div className="absolute inset-0 rounded-full border-2 border-primary/10 hover:border-primary/25 -z-0 transition-colors" />
+                      )}
                     </button>
                   );
                 })}
               </div>
             </div>
 
-            <div className="columns-1 sm:columns-2 lg:columns-3 gap-6 space-y-6">
+            {/* ARTISTIC EDITORIAL WALL ARRANGEMENT (Asymmetric Grid) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 auto-rows-[220px]">
               <AnimatePresence mode="popLayout">
-                {filteredWorks.map((w, i) => (
-                  <motion.figure
-                    key={w.id}
-                    layout
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.4, delay: (i % 6) * 0.04 }}
-                    className="break-inside-avoid cursor-zoom-in group"
-                    onClick={() => setActive(w)}
-                  >
-                    <div className="relative overflow-hidden rounded-lg border-2 border-primary/25 group-hover:border-primary/70 transition-colors bg-card">
-                      <img
-                        src={w.url}
-                        alt={`${w.title} — ${w.category} by ${STUDIO.name}`}
-                        loading="lazy"
-                        className="w-full h-auto block transition-transform duration-700 group-hover:scale-[1.04]"
-                        referrerPolicy="no-referrer"
-                      />
-                      <div className="absolute inset-0 flex items-end p-4 bg-gradient-to-t from-primary/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-                        <span className="font-[family-name:var(--font-display)] text-primary-foreground text-2xl">
-                          {w.title}
-                        </span>
+                {filteredWorks.map((w, i) => {
+                  // Editorial grid spanning rules based on index to create an organic, artistic gallery wall look
+                  let gridSpan = "col-span-1 row-span-1";
+                  const aspectClass = "h-full w-full object-cover";
+
+                  if (i % 6 === 0) {
+                    // Feature large tile
+                    gridSpan = "sm:col-span-2 sm:row-span-2";
+                  } else if (i % 6 === 3) {
+                    // Tall tile
+                    gridSpan = "sm:row-span-2";
+                  } else if (i % 6 === 4) {
+                    // Wide tile
+                    gridSpan = "sm:col-span-2";
+                  }
+
+                  // Rotation tilt
+                  const rotateDeg = i % 2 === 0 ? 0.4 : -0.4;
+
+                  return (
+                    <motion.div
+                      key={w.id}
+                      layout
+                      initial={{ opacity: 0, y: 30 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true, margin: "-20px" }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      transition={{ duration: 0.5, delay: (i % 4) * 0.05 }}
+                      whileHover={{
+                        scale: 1.015,
+                        rotate: `${rotateDeg * 2}deg`,
+                        zIndex: 10,
+                      }}
+                      className={`${gridSpan} cursor-zoom-in relative p-1.5 bg-background border border-primary/10 rounded-xl shadow-sm hover:shadow-xl hover:border-primary/40 transition-all duration-300 flex flex-col`}
+                      onClick={() => {
+                        setActive(w);
+                        setIsZoomed(false);
+                      }}
+                    >
+                      <div className="relative flex-1 w-full h-full overflow-hidden rounded-lg bg-primary/5">
+                        <img
+                          src={w.url}
+                          alt={`${w.title} by ${STUDIO.name}`}
+                          loading="lazy"
+                          className={`${aspectClass} transition-transform duration-700 hover:scale-[1.04]`}
+                          referrerPolicy="no-referrer"
+                        />
+
+                        {/* Red-ink caption ribbon slide-up overlay */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-primary/80 via-primary/20 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
+                          <div className="text-primary-foreground transform translate-y-2 hover:translate-y-0 transition-transform duration-300 text-left">
+                            <span className="text-[9px] font-mono uppercase tracking-widest opacity-80">
+                              {w.category}
+                            </span>
+                            <h3 className="font-[family-name:var(--font-display)] text-xl mt-0.5 leading-tight">
+                              {w.title}
+                            </h3>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <figcaption className="mt-3 flex items-center justify-between text-xs uppercase tracking-[0.2em]">
-                      <span className="font-[family-name:var(--font-display)] text-primary text-lg normal-case tracking-normal">
-                        {w.title}
-                      </span>
-                      <span className="text-primary/60">{w.category}</span>
-                    </figcaption>
-                  </motion.figure>
-                ))}
+                    </motion.div>
+                  );
+                })}
               </AnimatePresence>
             </div>
           </>
@@ -277,41 +364,137 @@ function GalleryPage() {
         )}
       </div>
 
-      {/* Local Art Lightbox */}
+      {/* REDESIGNED PAPER-CARD STUDIO LIGHTBOX */}
       <AnimatePresence>
         {active && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => setActive(null)}
-            className="fixed inset-0 z-[100] bg-primary/90 backdrop-blur-sm p-6 md:p-12 flex items-center justify-center cursor-zoom-out"
+            onClick={() => {
+              setActive(null);
+              setIsZoomed(false);
+            }}
+            className="fixed inset-0 z-[100] bg-primary/95 backdrop-blur-md p-4 md:p-8 flex items-center justify-center cursor-zoom-out"
           >
             <motion.div
-              initial={{ scale: 0.95 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.95 }}
-              className="max-w-5xl w-full max-h-full grid md:grid-cols-[1fr_260px] gap-6 items-center"
+              initial={{ scale: 0.96, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.96, y: 15 }}
+              transition={{ type: "spring", duration: 0.5 }}
+              className="bg-background text-primary max-w-5xl w-full rounded-2xl border-2 border-primary/30 p-5 md:p-8 shadow-2xl overflow-y-auto max-h-[92vh] relative grid grid-cols-1 md:grid-cols-12 gap-8 cursor-default"
               onClick={(e) => e.stopPropagation()}
             >
-              <img
-                src={active.url}
-                alt={active.title}
-                className="w-full max-h-[80vh] object-contain rounded-lg"
-                referrerPolicy="no-referrer"
-              />
-              <div className="text-primary-foreground">
-                <p className="text-xs uppercase tracking-[0.3em] opacity-70">{active.category}</p>
-                <h2 className="font-[family-name:var(--font-display)] text-4xl mt-2">
-                  {active.title}
-                </h2>
-                <p className="mt-4 text-sm opacity-90">{active.caption}</p>
-                <button
-                  onClick={() => setActive(null)}
-                  className="mt-8 px-5 py-2 border-2 border-primary-foreground rounded-full text-xs uppercase tracking-[0.25em] hover:bg-primary-foreground hover:text-primary transition-colors cursor-pointer"
+              {/* Close Button */}
+              <button
+                onClick={() => {
+                  setActive(null);
+                  setIsZoomed(false);
+                }}
+                className="absolute top-4 right-4 h-9 w-9 rounded-full border border-primary/10 hover:border-primary flex items-center justify-center hover:bg-primary/5 transition-all cursor-pointer text-primary"
+                aria-label="Close Lightbox"
+              >
+                <X className="h-5 w-5" />
+              </button>
+
+              {/* LEFT COLUMN: Large Image and Zoom Control (col-span-7) */}
+              <div className="md:col-span-7 flex flex-col justify-center relative group">
+                <div
+                  className={`relative overflow-hidden rounded-xl border border-primary/10 bg-primary/2 flex items-center justify-center transition-all ${
+                    isZoomed ? "aspect-auto max-h-[75vh]" : "aspect-[4/5] max-h-[60vh]"
+                  }`}
                 >
-                  Close
-                </button>
+                  <img
+                    src={active.url}
+                    alt={active.title}
+                    className={`rounded-lg transition-all duration-300 ${
+                      isZoomed
+                        ? "w-full h-full object-contain cursor-zoom-out"
+                        : "w-full h-full object-cover cursor-zoom-in"
+                    }`}
+                    onClick={() => setIsZoomed(!isZoomed)}
+                    referrerPolicy="no-referrer"
+                  />
+
+                  {/* Zoom indicator triggers */}
+                  <button
+                    onClick={() => setIsZoomed(!isZoomed)}
+                    className="absolute bottom-3 right-3 h-9 w-9 rounded-full bg-white/90 text-primary border border-primary/10 flex items-center justify-center shadow-md hover:scale-105 transition-transform"
+                    title={isZoomed ? "Normal view" : "Zoom view"}
+                  >
+                    {isZoomed ? (
+                      <Minimize2 className="h-4.5 w-4.5" />
+                    ) : (
+                      <Maximize2 className="h-4.5 w-4.5" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* RIGHT COLUMN: Permanent Marker details & "Same Project" strip (col-span-5) */}
+              <div className="md:col-span-5 flex flex-col justify-between text-left space-y-6 pt-2">
+                <div className="space-y-4">
+                  <div>
+                    <span className="text-[10px] font-mono uppercase tracking-[0.25em] text-primary/50 block">
+                      Category · {active.category}
+                    </span>
+                    <h2 className="font-[family-name:var(--font-display)] text-primary text-3xl md:text-4xl mt-1 leading-tight">
+                      {active.title}
+                    </h2>
+                  </div>
+
+                  <div className="h-[2px] bg-primary/10 w-12" />
+
+                  <p className="text-sm text-primary/80 leading-relaxed">{active.caption}</p>
+                </div>
+
+                {/* RELATED IMAGES FROM SAME PROJECT STRIP */}
+                <div className="space-y-3.5 pt-4 border-t border-primary/10">
+                  <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-primary/50 block">
+                    Related from this Project ({active.category})
+                  </span>
+
+                  {relatedWorks.length === 0 ? (
+                    <p className="text-xs text-primary/40 italic">
+                      No other works in this project series.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-2.5">
+                      {relatedWorks.map((rw) => (
+                        <button
+                          key={rw.id}
+                          onClick={() => {
+                            setActive(rw);
+                            setIsZoomed(false);
+                          }}
+                          className="group relative aspect-square rounded-lg overflow-hidden border border-primary/15 hover:border-primary cursor-pointer bg-primary/5 transition-all"
+                        >
+                          <img
+                            src={rw.url}
+                            alt={rw.title}
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            referrerPolicy="no-referrer"
+                          />
+                          <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-6 border-t border-primary/10 flex items-center justify-between">
+                  <span className="text-[10px] text-primary/40 font-mono">ID: {active.id}</span>
+                  <Link
+                    to="/contact"
+                    search={{
+                      subject: `Inquiry for ${active.title} (${active.category})`,
+                    }}
+                    className="inline-flex items-center gap-1.5 px-6 py-2.5 bg-primary text-primary-foreground rounded-full text-[10px] uppercase tracking-[0.2em] font-bold hover:opacity-90 transition-opacity"
+                  >
+                    <span>Inquire</span>
+                    <ArrowRight className="h-3 w-3" />
+                  </Link>
+                </div>
               </div>
             </motion.div>
           </motion.div>
@@ -342,7 +525,7 @@ function GalleryPage() {
                 referrerPolicy="no-referrer"
               />
               <div className="text-primary-foreground">
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-3 text-left">
                   <a
                     href={activePin.url}
                     target="_blank"

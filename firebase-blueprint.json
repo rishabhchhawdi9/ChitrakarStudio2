@@ -114,7 +114,16 @@
           "description": "Pinterest profile link"
         }
       },
-      "required": ["name", "artist", "city", "email", "phone", "phoneRaw", "instagram", "instagramHandle"]
+      "required": [
+        "name",
+        "artist",
+        "city",
+        "email",
+        "phone",
+        "phoneRaw",
+        "instagram",
+        "instagramHandle"
+      ]
     },
     "MediaItem": {
       "title": "MediaItem",
@@ -139,6 +148,38 @@
         }
       },
       "required": ["id", "url", "filename", "addedAt"]
+    },
+    "Client": {
+      "title": "Client",
+      "description": "A brand partner or corporate client",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier of the client"
+        },
+        "name": {
+          "type": "string",
+          "description": "Client or brand name"
+        },
+        "logoUrl": {
+          "type": "string",
+          "description": "Image URL of the brand logo"
+        },
+        "projectImageUrl": {
+          "type": "string",
+          "description": "Image URL of the case-study project"
+        },
+        "order": {
+          "type": "integer",
+          "description": "Sorting/display position order"
+        },
+        "published": {
+          "type": "boolean",
+          "description": "Whether the partner is visible live"
+        }
+      },
+      "required": ["id", "name", "logoUrl", "projectImageUrl"]
     }
   },
   "firestore": {
@@ -157,6 +198,10 @@
     "media": {
       "schema": "MediaItem",
       "description": "The local library of uploaded base64 paintings"
+    },
+    "clients": {
+      "schema": "Client",
+      "description": "Brand partners and corporate clients displayed on the home page"
     }
   }
 }

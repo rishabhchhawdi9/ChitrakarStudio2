@@ -44,6 +44,7 @@ For this TanStack Start/Lovable setup, the workflow builds with `STATIC_PAGES=tr
 ## Framework
 
 This project uses:
+
 - **TanStack Start** - Full-stack React framework
 - **Vite** - Fast build tool
 - **React** - UI library

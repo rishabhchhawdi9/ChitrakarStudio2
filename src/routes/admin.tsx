@@ -6,12 +6,14 @@ import {
   useAbstracts,
   useStudio,
   useMediaLibrary,
+  useClients,
   storeActions,
   getExportData,
   type MediaItem,
 } from "../lib/store";
 import { CATEGORIES, type Category, type Work } from "../lib/works";
 import { type AbstractArtProject, type AbstractPhoto } from "../lib/abstract-data";
+import { type Client } from "../lib/clients";
 import {
   Lock,
   Settings,
@@ -37,6 +39,8 @@ import {
   Instagram,
   ExternalLink,
   RefreshCw,
+  Users,
+  SlidersHorizontal,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin")({
@@ -62,6 +66,7 @@ function AdminPage() {
   const abstracts = useAbstracts();
   const studio = useStudio();
   const mediaLibrary = useMediaLibrary();
+  const clients = useClients();
 
   // Authentication state
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -69,12 +74,12 @@ function AdminPage() {
   const [authError, setAuthError] = useState("");
 
   // UI state
-  const [activeTab, setActiveTab] = useState<"studio" | "works" | "abstracts" | "media" | "backup">(
-    "studio",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "studio" | "works" | "abstracts" | "media" | "backup" | "clients"
+  >("studio");
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [mediaSelectorTarget, setMediaSelectorTarget] = useState<{
-    type: "work" | "abstract";
+    type: "work" | "abstract" | "client-logo" | "client-project";
     index?: number;
   } | null>(null);
   const [mediaSearch, setMediaSearch] = useState("");
@@ -105,7 +110,21 @@ function AdminPage() {
     description: "",
     url: "",
     featured: false,
+    exclusive: false,
   });
+
+  // Form states - Client
+  const [clientForm, setClientForm] = useState({
+    name: "",
+    logoUrl: "",
+    projectImageUrl: "",
+    order: 1,
+    published: true,
+  });
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [isAddingClient, setIsAddingClient] = useState(false);
+  const [clientsSearch, setClientsSearch] = useState("");
+  const [clientsSort, setClientsSort] = useState<"order" | "alphabetical">("order");
 
   // Form states - Abstract Project
   const [abstractForm, setAbstractForm] = useState({
@@ -434,10 +453,11 @@ function AdminPage() {
     // Reset Form
     setWorkForm({
       title: "",
-      category: "Murals",
+      category: "Mural" as Category,
       description: "",
       url: "",
       featured: false,
+      exclusive: false,
     });
   };
 
@@ -450,6 +470,7 @@ function AdminPage() {
       description: w.description || "",
       url: w.url,
       featured: !!w.featured,
+      exclusive: !!w.exclusive,
     });
     setIsAddingWork(true);
   };
@@ -459,10 +480,11 @@ function AdminPage() {
     setIsAddingWork(false);
     setWorkForm({
       title: "",
-      category: "Murals",
+      category: "Mural" as Category,
       description: "",
       url: "",
       featured: false,
+      exclusive: false,
     });
   };
 
@@ -599,6 +621,68 @@ function AdminPage() {
       onConfirm: () => {
         storeActions.deleteAbstract(id);
         showToast(`Deleted abstract series "${title}".`);
+      },
+    });
+  };
+
+  // CLIENT CRUD OPERATIONS
+  const handleClientSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!clientForm.name.trim()) {
+      showToast("Client / Brand Name is required.", "error");
+      return;
+    }
+    if (editingClient) {
+      storeActions.updateClient(editingClient.id, clientForm);
+      showToast(`Successfully updated client "${clientForm.name}".`);
+      setEditingClient(null);
+    } else {
+      storeActions.addClient(clientForm);
+      showToast(`Successfully added client "${clientForm.name}".`);
+      setIsAddingClient(false);
+    }
+    setClientForm({
+      name: "",
+      logoUrl: "",
+      projectImageUrl: "",
+      order: clients.length + 1,
+      published: true,
+    });
+  };
+
+  const startEditClient = (c: Client) => {
+    setEditingClient(c);
+    setClientForm({
+      name: c.name,
+      logoUrl: c.logoUrl,
+      projectImageUrl: c.projectImageUrl,
+      order: c.order || 1,
+      published: !!c.published,
+    });
+    setIsAddingClient(true);
+  };
+
+  const cancelClientEdit = () => {
+    setEditingClient(null);
+    setIsAddingClient(false);
+    setClientForm({
+      name: "",
+      logoUrl: "",
+      projectImageUrl: "",
+      order: clients.length + 1,
+      published: true,
+    });
+  };
+
+  const deleteClient = (id: string, name: string) => {
+    triggerConfirm({
+      title: "Delete Client Record",
+      message: `Are you sure you want to delete "${name}"? This action cannot be undone.`,
+      confirmText: "Delete",
+      isDestructive: true,
+      onConfirm: () => {
+        storeActions.deleteClient(id);
+        showToast(`Deleted client "${name}".`);
       },
     });
   };
@@ -870,6 +954,23 @@ function AdminPage() {
             >
               <RotateCcw className="h-4 w-4 shrink-0" />
               <span>5. Data Backup &amp; Reset</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setActiveTab("clients");
+                cancelWorkEdit();
+                cancelAbstractEdit();
+                cancelClientEdit();
+              }}
+              className={`w-full text-left px-5 py-4 rounded-xl font-medium text-xs uppercase tracking-wider flex items-center gap-3 border transition-all cursor-pointer ${
+                activeTab === "clients"
+                  ? "bg-primary text-primary-foreground border-primary shadow-md scale-102"
+                  : "border-primary/10 hover:border-primary/30 hover:bg-primary/5 text-primary/80"
+              }`}
+            >
+              <Users className="h-4 w-4 shrink-0" />
+              <span>6. Corporate Clients ({clients.length})</span>
             </button>
 
             <div className="mt-8 bg-card border border-primary/15 p-4 rounded-xl text-xs space-y-2 opacity-80">
@@ -1183,6 +1284,31 @@ function AdminPage() {
                           </label>
                         </div>
 
+                        <div className="md:col-span-2">
+                          <label className="text-xs uppercase tracking-wider font-semibold text-primary/60 block mb-2">
+                            Exclusive &amp; On-Demand Toggle
+                          </label>
+                          <label className="flex items-center gap-3 cursor-pointer p-3 border border-primary/10 rounded-lg bg-primary/2">
+                            <input
+                              type="checkbox"
+                              checked={workForm.exclusive || false}
+                              onChange={(e) =>
+                                setWorkForm((prev) => ({ ...prev, exclusive: e.target.checked }))
+                              }
+                              className="h-4 w-4 text-primary focus:ring-primary rounded"
+                            />
+                            <div className="text-xs text-left">
+                              <span className="font-bold text-primary block">
+                                Premium / Bespoke Item
+                              </span>
+                              <span className="text-primary/70">
+                                Check this to show it in the 'Exclusive &amp; On-Demand' bespoke
+                                section.
+                              </span>
+                            </div>
+                          </label>
+                        </div>
+
                         <div className="md:col-span-2 space-y-4">
                           <label className="text-xs uppercase tracking-wider font-semibold text-primary/60 block">
                             Artwork Image Source
@@ -1348,7 +1474,7 @@ function AdminPage() {
                             <img
                               src={w.url}
                               alt={w.title}
-                              className="h-full w-full object-cover"
+                              className="h-full w-full object-contain bg-primary/5"
                               referrerPolicy="no-referrer"
                             />
                           </div>
@@ -1525,22 +1651,6 @@ function AdminPage() {
 
                         <div className="md:col-span-2">
                           <label className="text-xs uppercase tracking-wider font-semibold text-primary/60 block mb-2">
-                            Canvas Dimensions
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="e.g. 6.5 x 8 Feet (78 x 96 in)"
-                            value={abstractForm.dimensions}
-                            onChange={(e) =>
-                              setAbstractForm((prev) => ({ ...prev, dimensions: e.target.value }))
-                            }
-                            className="w-full px-4 py-3 border border-primary/20 bg-background rounded-lg focus:border-primary focus:outline-none transition-colors"
-                            required
-                          />
-                        </div>
-
-                        <div className="md:col-span-2">
-                          <label className="text-xs uppercase tracking-wider font-semibold text-primary/60 block mb-2">
                             Conceptual Story &amp; Philosophy Notes
                           </label>
                           <textarea
@@ -1594,7 +1704,7 @@ function AdminPage() {
                                     <img
                                       src={photo.url}
                                       alt="Perspective"
-                                      className="h-full w-full object-cover"
+                                      className="h-full w-full object-contain bg-primary/5"
                                     />
                                   </div>
                                 ) : (
@@ -1635,22 +1745,6 @@ function AdminPage() {
                                       updateAbstractPhotoInForm(index, "url", e.target.value)
                                     }
                                     className="w-full px-3 py-1.5 text-xs border border-primary/20 bg-background rounded focus:border-primary focus:outline-none"
-                                  />
-                                </div>
-
-                                <div>
-                                  <label className="text-[10px] uppercase tracking-wider font-bold text-primary/50 block mb-1">
-                                    Perspectives Caption / Context (Highly Recommended)
-                                  </label>
-                                  <input
-                                    type="text"
-                                    placeholder="e.g. Deep raking side lights casting marble relief shadows"
-                                    value={photo.caption}
-                                    onChange={(e) =>
-                                      updateAbstractPhotoInForm(index, "caption", e.target.value)
-                                    }
-                                    className="w-full px-3 py-1.5 text-xs border border-primary/20 bg-background rounded focus:border-primary focus:outline-none"
-                                    required
                                   />
                                 </div>
                               </div>
@@ -1735,7 +1829,7 @@ function AdminPage() {
                             <img
                               src={p.photos?.[0]?.url || ""}
                               alt={p.title}
-                              className="h-full w-full object-cover"
+                              className="h-full w-full object-contain bg-primary/5"
                               referrerPolicy="no-referrer"
                             />
                           </div>
@@ -2078,6 +2172,348 @@ function AdminPage() {
                 </div>
               </motion.div>
             )}
+
+            {/* TAB 6: CORPORATE CLIENTS */}
+            {activeTab === "clients" && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-8 text-left"
+              >
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div>
+                    <h2 className="font-[family-name:var(--font-display)] text-primary text-4xl mb-1 leading-none">
+                      Corporate Clients &amp; Partners
+                    </h2>
+                    <p className="text-sm opacity-70">
+                      Manage trust logos, names, and featured project images displayed in the
+                      "Trusted By" homepage band.
+                    </p>
+                  </div>
+                  {!isAddingClient && (
+                    <button
+                      onClick={() => {
+                        setIsAddingClient(true);
+                        setEditingClient(null);
+                        setClientForm({
+                          name: "",
+                          logoUrl: "",
+                          projectImageUrl: "",
+                          order: clients.length + 1,
+                          published: true,
+                        });
+                      }}
+                      className="inline-flex items-center gap-2 px-5 py-3 bg-primary text-primary-foreground font-bold text-xs uppercase tracking-wider rounded-lg hover:opacity-90 transition-all cursor-pointer shadow-sm"
+                    >
+                      <Plus className="h-4 w-4" />
+                      <span>Add Brand Partner</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* FORM PANEL */}
+                {isAddingClient && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    className="border-2 border-primary/20 bg-primary/2 p-6 rounded-2xl space-y-6"
+                  >
+                    <div className="border-b border-primary/10 pb-3 flex justify-between items-center">
+                      <h3 className="font-semibold text-primary text-lg">
+                        {editingClient
+                          ? `Edit Brand Partner: ${editingClient.name}`
+                          : "Create Brand Partner Profile"}
+                      </h3>
+                      <button
+                        onClick={cancelClientEdit}
+                        className="text-xs uppercase tracking-wider text-primary/60 hover:text-primary font-bold"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+
+                    <form
+                      onSubmit={handleClientSubmit}
+                      className="grid grid-cols-1 md:grid-cols-2 gap-6"
+                    >
+                      <div className="md:col-span-2">
+                        <label className="text-xs uppercase tracking-wider font-semibold text-primary/60 block mb-2">
+                          Client / Brand Name
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Café de L'Amour — Interior Wall"
+                          value={clientForm.name}
+                          onChange={(e) =>
+                            setClientForm((prev) => ({ ...prev, name: e.target.value }))
+                          }
+                          className="w-full px-4 py-3 border border-primary/20 bg-background rounded-lg focus:border-primary focus:outline-none transition-colors"
+                          required
+                        />
+                      </div>
+
+                      {/* BRAND LOGO URL + SELECTOR */}
+                      <div>
+                        <label className="text-xs uppercase tracking-wider font-semibold text-primary/60 block mb-2">
+                          Brand Logo Image URL
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="url"
+                            placeholder="https://..."
+                            value={clientForm.logoUrl}
+                            onChange={(e) =>
+                              setClientForm((prev) => ({ ...prev, logoUrl: e.target.value }))
+                            }
+                            className="flex-1 px-4 py-3 border border-primary/20 bg-background rounded-lg focus:border-primary focus:outline-none transition-colors text-xs"
+                            required
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setMediaSelectorTarget({ type: "client-logo" })}
+                            className="px-4 bg-primary/10 border border-primary/25 hover:bg-primary/20 rounded-lg text-xs font-semibold text-primary cursor-pointer transition-colors"
+                          >
+                            Browse
+                          </button>
+                        </div>
+                        {clientForm.logoUrl && (
+                          <div className="mt-3 h-16 w-32 border border-primary/10 rounded-lg overflow-hidden bg-primary/2 p-2 flex items-center justify-center">
+                            <img
+                              src={clientForm.logoUrl}
+                              alt="Logo preview"
+                              className="max-h-full max-w-full object-contain"
+                              referrerPolicy="no-referrer"
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* PROJECT IMAGE URL + SELECTOR */}
+                      <div>
+                        <label className="text-xs uppercase tracking-wider font-semibold text-primary/60 block mb-2">
+                          Project Case-Study Image URL
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="url"
+                            placeholder="https://..."
+                            value={clientForm.projectImageUrl}
+                            onChange={(e) =>
+                              setClientForm((prev) => ({
+                                ...prev,
+                                projectImageUrl: e.target.value,
+                              }))
+                            }
+                            className="flex-1 px-4 py-3 border border-primary/20 bg-background rounded-lg focus:border-primary focus:outline-none transition-colors text-xs"
+                            required
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setMediaSelectorTarget({ type: "client-project" })}
+                            className="px-4 bg-primary/10 border border-primary/25 hover:bg-primary/20 rounded-lg text-xs font-semibold text-primary cursor-pointer transition-colors"
+                          >
+                            Browse
+                          </button>
+                        </div>
+                        {clientForm.projectImageUrl && (
+                          <div className="mt-3 h-20 w-28 border border-primary/10 rounded-lg overflow-hidden bg-primary/2 p-1 flex items-center justify-center">
+                            <img
+                              src={clientForm.projectImageUrl}
+                              alt="Project preview"
+                              className="max-h-full max-w-full object-contain"
+                              referrerPolicy="no-referrer"
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* SORT ORDER */}
+                      <div>
+                        <label className="text-xs uppercase tracking-wider font-semibold text-primary/60 block mb-2">
+                          Display Position Order
+                        </label>
+                        <input
+                          type="number"
+                          value={clientForm.order}
+                          onChange={(e) =>
+                            setClientForm((prev) => ({
+                              ...prev,
+                              order: parseInt(e.target.value) || 1,
+                            }))
+                          }
+                          className="w-full px-4 py-3 border border-primary/20 bg-background rounded-lg focus:border-primary focus:outline-none transition-colors"
+                          min="1"
+                          required
+                        />
+                      </div>
+
+                      {/* PUBLISHED TOGGLE */}
+                      <div>
+                        <label className="text-xs uppercase tracking-wider font-semibold text-primary/60 block mb-2">
+                          Status Toggle
+                        </label>
+                        <label className="flex items-center gap-3 cursor-pointer p-3 border border-primary/10 rounded-lg bg-background">
+                          <input
+                            type="checkbox"
+                            checked={clientForm.published}
+                            onChange={(e) =>
+                              setClientForm((prev) => ({ ...prev, published: e.target.checked }))
+                            }
+                            className="h-4 w-4 text-primary focus:ring-primary rounded"
+                          />
+                          <div className="text-xs">
+                            <span className="font-bold text-primary block">Published Live</span>
+                            <span className="text-primary/70">
+                              Show this client and their project case on home page.
+                            </span>
+                          </div>
+                        </label>
+                      </div>
+
+                      {/* ACTIONS */}
+                      <div className="md:col-span-2 pt-4 border-t border-primary/10 flex justify-end gap-3">
+                        <button
+                          type="button"
+                          onClick={cancelClientEdit}
+                          className="px-5 py-3 border border-primary/20 hover:bg-primary/5 text-primary rounded-lg text-xs font-bold uppercase tracking-wider cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-6 py-3 bg-primary text-primary-foreground font-bold text-xs uppercase tracking-wider rounded-lg hover:opacity-90 transition-all flex items-center gap-2 cursor-pointer shadow-sm"
+                        >
+                          <Save className="h-4 w-4" />
+                          <span>{editingClient ? "Update Brand" : "Save Brand Partner"}</span>
+                        </button>
+                      </div>
+                    </form>
+                  </motion.div>
+                )}
+
+                {/* LIST OF CLIENTS */}
+                <div className="border border-primary/15 bg-card rounded-2xl overflow-hidden shadow-sm">
+                  {/* List Filters */}
+                  <div className="p-4 bg-primary/2 border-b border-primary/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div className="relative flex-1 w-full sm:max-w-xs">
+                      <input
+                        type="text"
+                        placeholder="Search partners..."
+                        value={clientsSearch}
+                        onChange={(e) => setClientsSearch(e.target.value)}
+                        className="w-full pl-8 pr-3 py-1.5 text-xs bg-background border border-primary/20 rounded-lg focus:outline-none focus:border-primary text-primary"
+                      />
+                      <svg
+                        className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-primary/40"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                        />
+                      </svg>
+                    </div>
+
+                    {/* Sorting dropdown */}
+                    <select
+                      value={clientsSort}
+                      onChange={(e) => setClientsSort(e.target.value as "order" | "alphabetical")}
+                      className="px-3 py-1.5 text-xs bg-background border border-primary/20 rounded-lg text-primary font-semibold focus:outline-none focus:border-primary cursor-pointer self-stretch sm:self-auto"
+                    >
+                      <option value="order">Sort by Position Order</option>
+                      <option value="alphabetical">Sort Alphabetically (A-Z)</option>
+                    </select>
+                  </div>
+
+                  {/* List items */}
+                  <div className="divide-y divide-primary/10">
+                    {clients
+                      .filter((c) => c.name.toLowerCase().includes(clientsSearch.toLowerCase()))
+                      .sort((a, b) => {
+                        if (clientsSort === "alphabetical") {
+                          return a.name.localeCompare(b.name);
+                        }
+                        return (a.order || 0) - (b.order || 0);
+                      })
+                      .map((c) => (
+                        <div
+                          key={c.id}
+                          className="p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:bg-primary/1 transition-colors"
+                        >
+                          <div className="flex items-center gap-4 text-left">
+                            {/* Logo */}
+                            <div className="h-12 w-16 bg-primary/2 border border-primary/10 rounded-lg p-1.5 flex items-center justify-center shrink-0">
+                              <img
+                                src={c.logoUrl}
+                                alt="Client Logo"
+                                className="max-h-full max-w-full object-contain bg-background"
+                                referrerPolicy="no-referrer"
+                              />
+                            </div>
+                            {/* Project Image */}
+                            <div className="h-12 w-12 bg-primary/2 border border-primary/10 rounded-lg overflow-hidden shrink-0 flex items-center justify-center">
+                              <img
+                                src={c.projectImageUrl}
+                                alt="Case project"
+                                className="h-full w-full object-contain bg-background"
+                                referrerPolicy="no-referrer"
+                              />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-[family-name:var(--font-display)] text-lg text-primary leading-tight">
+                                  {c.name}
+                                </span>
+                                {c.published ? (
+                                  <span className="text-[8px] bg-green-100 text-green-800 border border-green-200 px-1.5 py-0.5 rounded font-semibold uppercase">
+                                    Published
+                                  </span>
+                                ) : (
+                                  <span className="text-[8px] bg-primary/5 text-primary/40 border border-primary/10 px-1.5 py-0.5 rounded font-semibold uppercase">
+                                    Draft
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-primary/60 mt-1">
+                                Position Order:{" "}
+                                <strong className="text-primary font-bold">{c.order}</strong>
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end border-t sm:border-t-0 pt-3 sm:pt-0 border-primary/10">
+                            <button
+                              onClick={() => startEditClient(c)}
+                              className="px-3.5 py-1.5 border border-primary/15 hover:border-primary/40 rounded-lg text-xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-colors"
+                            >
+                              <Edit3 className="h-3.5 w-3.5" />
+                              <span>Edit</span>
+                            </button>
+                            <button
+                              onClick={() => deleteClient(c.id, c.name)}
+                              className="px-3.5 py-1.5 border border-red-200 hover:border-red-500 hover:bg-red-500/5 text-red-600 rounded-lg text-xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-colors"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              <span>Delete</span>
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+
+                    {clients.length === 0 && (
+                      <p className="text-center text-xs text-primary/50 italic py-12">
+                        No corporate clients or brands registered. Create one using the form above!
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            )}
           </section>
         </div>
       </main>
@@ -2137,6 +2573,10 @@ function AdminPage() {
                             mediaSelectorTarget.index !== undefined
                           ) {
                             updateAbstractPhotoInForm(mediaSelectorTarget.index, "url", m.url);
+                          } else if (mediaSelectorTarget.type === "client-logo") {
+                            setClientForm((prev) => ({ ...prev, logoUrl: m.url }));
+                          } else if (mediaSelectorTarget.type === "client-project") {
+                            setClientForm((prev) => ({ ...prev, projectImageUrl: m.url }));
                           }
                           setMediaSelectorTarget(null);
                           showToast(`Selected image: ${m.filename}`);

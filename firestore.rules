@@ -29,5 +29,11 @@ service cloud.firestore {
       allow read: if true;
       allow write: if true;
     }
+
+    // Clients Collection
+    match /clients/{clientId} {
+      allow read: if true;
+      allow write: if true;
+    }
   }
 }

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { works as defaultWorks, type Work } from "./works";
 import { ABSTRACT_ARTS as defaultAbstracts, type AbstractArtProject } from "./abstract-data";
 import { STUDIO as defaultStudio } from "./studio";
+import { defaultClients, type Client } from "./clients";
 import { db } from "./firebase";
 import { collection, onSnapshot, doc, setDoc, deleteDoc, getDocs } from "firebase/firestore";
 
@@ -38,6 +39,7 @@ let worksCache: Work[] = [...defaultWorks];
 let abstractsCache: AbstractArtProject[] = [...defaultAbstracts];
 let studioCache = { ...defaultStudio };
 let mediaCache: MediaItem[] = [...defaultMedia];
+let clientsCache: Client[] = [...defaultClients];
 
 // Firestore Error Handling
 export enum OperationType {
@@ -110,42 +112,42 @@ async function initFirestoreIfNeeded() {
   if (isInitializing) return;
   isInitializing = true;
   try {
-    // 1. Works
-    const worksRef = collection(db, "works");
-    const worksSnap = await getDocs(worksRef);
-    if (worksSnap.empty) {
-      console.log("Initializing Firestore works with defaults...");
+    // We check if the studio info document exists. If it does, we assume Firestore is already initialized
+    // and we MUST NOT seed default items (even if collections are empty, which can happen if the user deletes them).
+    const studioDocRef = doc(db, "studio", "info");
+    const studioSnap = await getDocs(collection(db, "studio"));
+
+    if (studioSnap.empty) {
+      console.log(
+        "Fresh Firestore database detected. Initializing all collections with defaults...",
+      );
+
+      // 1. Studio Info
+      await setDoc(studioDocRef, defaultStudio);
+
+      // 2. Works
       for (const w of defaultWorks) {
         await setDoc(doc(db, "works", w.id), w);
       }
-    }
 
-    // 2. Abstracts
-    const abstractsRef = collection(db, "abstracts");
-    const abstractsSnap = await getDocs(abstractsRef);
-    if (abstractsSnap.empty) {
-      console.log("Initializing Firestore abstracts with defaults...");
+      // 3. Abstracts
       for (const abs of defaultAbstracts) {
         await setDoc(doc(db, "abstracts", abs.id), abs);
       }
-    }
 
-    // 3. Studio info
-    const studioDocRef = doc(db, "studio", "info");
-    const studioSnap = await getDocs(collection(db, "studio"));
-    if (studioSnap.empty) {
-      console.log("Initializing Firestore studio with defaults...");
-      await setDoc(studioDocRef, defaultStudio);
-    }
-
-    // 4. Media
-    const mediaRef = collection(db, "media");
-    const mediaSnap = await getDocs(mediaRef);
-    if (mediaSnap.empty) {
-      console.log("Initializing Firestore media with defaults...");
+      // 4. Media
       for (const m of defaultMedia) {
         await setDoc(doc(db, "media", m.id), m);
       }
+
+      // 5. Clients
+      for (const c of defaultClients) {
+        await setDoc(doc(db, "clients", c.id), c);
+      }
+
+      console.log("Firestore initialization complete.");
+    } else {
+      console.log("Firestore is already initialized. Skipping default seeding.");
     }
   } catch (err) {
     console.error("Failed to initialize Firestore collections:", err);
@@ -219,6 +221,23 @@ if (typeof window !== "undefined") {
         handleFirestoreError(error, OperationType.GET, "media", false);
       },
     );
+
+    // Clients subscription
+    onSnapshot(
+      collection(db, "clients"),
+      (snapshot) => {
+        const list: Client[] = [];
+        snapshot.forEach((docSnap) => {
+          list.push(docSnap.data() as Client);
+        });
+        list.sort((a, b) => a.order - b.order);
+        clientsCache = list;
+        notify();
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.GET, "clients", false);
+      },
+    );
   });
 }
 
@@ -255,6 +274,14 @@ export function useMediaLibrary(): MediaItem[] {
   return state;
 }
 
+export function useClients(): Client[] {
+  const [state, setState] = useState(clientsCache);
+  useEffect(() => {
+    return subscribe(() => setState([...clientsCache]));
+  }, []);
+  return state;
+}
+
 // Utility to export current dynamic data
 export function getExportData() {
   return {
@@ -262,6 +289,7 @@ export function getExportData() {
     abstracts: abstractsCache,
     studio: studioCache,
     media: mediaCache,
+    clients: clientsCache,
   };
 }
 
@@ -350,6 +378,35 @@ export const storeActions = {
     }
   },
 
+  // Client actions
+  addClient: async (client: Omit<Client, "id">) => {
+    const id = "c-" + Date.now();
+    const newClient: Client = { ...client, id };
+    try {
+      await setDoc(doc(db, "clients", id), newClient);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `clients/${id}`);
+    }
+    return newClient;
+  },
+
+  updateClient: async (id: string, updated: Partial<Client>) => {
+    const current = clientsCache.find((c) => c.id === id) || {};
+    try {
+      await setDoc(doc(db, "clients", id), { ...current, ...updated }, { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `clients/${id}`);
+    }
+  },
+
+  deleteClient: async (id: string) => {
+    try {
+      await deleteDoc(doc(db, "clients", id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `clients/${id}`);
+    }
+  },
+
   // General settings actions
   updateStudio: async (updated: Partial<typeof defaultStudio>) => {
     try {
@@ -365,6 +422,7 @@ export const storeActions = {
     abstracts?: AbstractArtProject[];
     studio?: typeof defaultStudio;
     media?: MediaItem[];
+    clients?: Client[];
   }) => {
     try {
       if (data.works && Array.isArray(data.works)) {
@@ -383,6 +441,11 @@ export const storeActions = {
       if (data.media && Array.isArray(data.media)) {
         for (const m of data.media) {
           await setDoc(doc(db, "media", m.id), m);
+        }
+      }
+      if (data.clients && Array.isArray(data.clients)) {
+        for (const c of data.clients) {
+          await setDoc(doc(db, "clients", c.id), c);
         }
       }
     } catch (error) {
@@ -405,6 +468,10 @@ export const storeActions = {
       for (const d of mediaSnap.docs) {
         await deleteDoc(doc(db, "media", d.id));
       }
+      const clientsSnap = await getDocs(collection(db, "clients"));
+      for (const d of clientsSnap.docs) {
+        await deleteDoc(doc(db, "clients", d.id));
+      }
 
       // Restore defaults
       await setDoc(doc(db, "studio", "info"), defaultStudio);
@@ -416,6 +483,9 @@ export const storeActions = {
       }
       for (const m of defaultMedia) {
         await setDoc(doc(db, "media", m.id), m);
+      }
+      for (const c of defaultClients) {
+        await setDoc(doc(db, "clients", c.id), c);
       }
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, "resetToDefaults");

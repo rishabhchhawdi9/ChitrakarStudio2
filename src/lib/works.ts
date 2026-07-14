@@ -6,7 +6,9 @@ export type Work = {
   title: string;
   category: Category;
   caption: string;
+  description?: string;
   featured?: boolean;
+  exclusive?: boolean;
 };
 
 export const works: Work[] = [
@@ -315,6 +317,30 @@ export const works: Work[] = [
     category: "Commercial",
     caption:
       "Installed context showcasing the monolithic scale against a tall ceiling in a contemporary commercial boardroom.",
+  },
+  {
+    id: "ex1",
+    url: "https://images.unsplash.com/photo-1618220179428-22790b461013?auto=format&fit=crop&w=800&q=80",
+    title: "Live Edge Resin River Table",
+    category: "Interior",
+    caption: "Premium custom-built walnut wood slab slab with deep-sea turquoise resin pour.",
+    exclusive: true,
+  },
+  {
+    id: "ex2",
+    url: "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=800&q=80",
+    title: "Geometric Thread-Art Board",
+    category: "Wall Art",
+    caption: "Hand-spun silk thread architectural geometry over charred cedar panel.",
+    exclusive: true,
+  },
+  {
+    id: "ex3",
+    url: "https://images.unsplash.com/photo-1541701494587-cb58502866ab?auto=format&fit=crop&w=800&q=80",
+    title: "Textured Gesso & Brass Mandorla",
+    category: "Canvas",
+    caption: "Sculptural mineral relief featuring raw ochres and hand-beaten polished brass inlay.",
+    exclusive: true,
   },
 ];
 
